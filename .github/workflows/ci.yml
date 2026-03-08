@@ -58,3 +58,43 @@ jobs:
       - run: npm ci
       - run: cd sdk && npm ci
       - run: cd sdk && npx vitest run
+
+  test-virtuals-plugin:
+    name: Virtuals Plugin Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: cd sdk && npm ci
+      - run: cd packages/virtuals-plugin && npm ci
+      - run: cd packages/virtuals-plugin && npx vitest run
+
+  test-openclaw-skill:
+    name: OpenClaw Skill Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: cd sdk && npm ci
+      - run: cd packages/openclaw-skill && npm ci
+      - run: cd packages/openclaw-skill && npx vitest run
+
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: cd frontend && npm ci
+      - run: cd frontend && npx vite build

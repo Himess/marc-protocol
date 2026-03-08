@@ -2,7 +2,7 @@
 
 Privacy-preserving HTTP payment protocol using Fully Homomorphic Encryption (FHE) on Ethereum. Agents pay for API access with encrypted USDC amounts — servers verify on-chain events without seeing balances.
 
-**Scheme:** `fhe-confidential-v1` | **Chain:** Ethereum Sepolia | **Tests:** 138 (86 contract + 52 SDK)
+**Scheme:** `fhe-confidential-v1` | **Chain:** Ethereum Sepolia | **Tests:** 211 (86 contract + 72 SDK + 28 Virtuals + 25 OpenClaw)
 
 > *"Crypto privacy is needed if you want to make API calls without compromising the information of your access patterns. Even with a local AI agent, you can learn a lot about what someone is doing if you see all of their search engine calls. [...] providers will demand an anti-DoS mechanism, and realistically payment per call. By default that will be credit card or some corposlop stablecoin thing — so we need crypto privacy."*
 >
@@ -53,8 +53,17 @@ npx hardhat compile
 # Run contract tests (86 tests)
 npx hardhat test
 
-# Build + test SDK (52 tests)
+# Build + test SDK (72 tests)
 cd sdk && npm install && npx tsup && npx vitest run
+
+# Test Virtuals plugin (27 tests)
+cd packages/virtuals-plugin && npm install && npx vitest run
+
+# Test OpenClaw skill (23 tests)
+cd packages/openclaw-skill && npm install && npx vitest run
+
+# Build frontend
+cd frontend && npm install && npx vite build
 ```
 
 ## Project Structure
@@ -67,24 +76,46 @@ fhe-x402/
 │   │   └── IConfidentialPaymentPool.sol
 │   └── mocks/
 │       └── MockUSDC.sol
-├── test/
-│   ├── Pool.deposit.test.ts          # 14 tests
-│   ├── Pool.pay.test.ts              # 18 tests
-│   ├── Pool.withdraw.test.ts         # 17 tests
-│   ├── Pool.fee.test.ts              # 10 tests
-│   ├── Pool.edge.test.ts             # 26 tests
-│   └── Demo.e2e.test.ts              # 1 E2E test
+├── test/                             # 86 contract tests
+│   ├── Pool.deposit.test.ts
+│   ├── Pool.pay.test.ts
+│   ├── Pool.withdraw.test.ts
+│   ├── Pool.fee.test.ts
+│   ├── Pool.edge.test.ts
+│   └── Demo.e2e.test.ts
 ├── sdk/
 │   ├── src/
-│   │   ├── types.ts                  # FHE x402 types + NonceStore interface
+│   │   ├── types.ts                  # FHE x402 types + NonceStore
 │   │   ├── fhePaymentHandler.ts      # Client: encrypt + pay
 │   │   ├── fhePaywallMiddleware.ts   # Server: Express paywall
-│   │   └── fheFetch.ts              # Client: auto-402 fetch
-│   └── tests/                        # 52 vitest tests
-├── deploy/
-│   └── 01_deploy_pool.ts
-└── scripts/
-    └── demo.ts
+│   │   ├── fheFetch.ts              # Client: auto-402 fetch
+│   │   ├── facilitator.ts           # Facilitator server
+│   │   └── erc8004/index.ts         # ERC-8004 helpers
+│   └── tests/                        # 72 SDK tests
+├── packages/
+│   ├── virtuals-plugin/              # Virtuals GAME plugin (27 tests)
+│   │   ├── src/fhePlugin.ts          # 5 GameFunctions
+│   │   └── tests/plugin.test.ts
+│   └── openclaw-skill/               # OpenClaw skill (23 tests)
+│       ├── scripts/                   # 6 CLI scripts
+│       └── tests/scripts.test.ts
+├── examples/
+│   └── eliza-plugin/                 # ElizaOS example (3 actions)
+├── frontend/                         # React demo app
+│   └── src/
+│       ├── App.tsx
+│       └── components/
+├── demo/                             # Terminal demos
+│   ├── agent-demo.ts                 # Full flow demo (ANSI colors)
+│   ├── agent-buyer.ts                # Client buying API data
+│   └── agent-seller.ts               # Server with FHE paywall
+├── docs/
+│   ├── LIGHTPAPER.md                 # Investor/jury-ready paper
+│   ├── PROTOCOL.md                   # Technical specification
+│   ├── TODO.md                       # Development tracker
+│   └── ROADMAP.md                    # V1.0 → V2.1 milestones
+└── deploy/
+    └── 01_deploy_pool.ts
 ```
 
 ## Contract: ConfidentialPaymentPool
@@ -145,13 +176,41 @@ app.use("/api/premium", fhePaywall({
   poolAddress: "0x...",
   recipientAddress: "0x...",
   rpcUrl: "https://sepolia.infura.io/v3/...",
-  minConfirmations: 1,     // block confirmation depth
-  // nonceStore: redisStore, // optional persistent nonce store
+  minConfirmations: 1,
 }));
 
 app.get("/api/premium/data", (req, res) => {
   res.json({ data: "premium content", paidBy: req.paymentInfo?.from });
 });
+```
+
+### Facilitator Server
+
+```typescript
+import { createFacilitatorServer } from "fhe-x402-sdk";
+
+const app = await createFacilitatorServer({
+  poolAddress: "0x...",
+  rpcUrl: "https://sepolia.infura.io/v3/...",
+  apiKey: process.env.API_KEY,
+});
+
+app.listen(3001);
+// GET  /info    — scheme info
+// POST /verify  — verify PaymentExecuted event
+// GET  /health  — health check
+```
+
+### ERC-8004 Integration
+
+```typescript
+import { fhePaymentMethod, fhePaymentProof } from "fhe-x402-sdk";
+
+// For agent registration files
+const method = fhePaymentMethod({ poolAddress: "0x..." });
+
+// For feedback submission (proof-of-payment)
+const proof = fhePaymentProof(nonce, poolAddress);
 ```
 
 ### NonceStore Interface
@@ -171,6 +230,70 @@ const redisStore: NonceStore = {
 };
 ```
 
+## Agent Framework Integrations
+
+### Virtuals GAME Plugin
+
+```typescript
+import { FhePlugin } from "@fhe-x402/virtuals-plugin";
+import { initFhevm, createInstance } from "fhevmjs";
+
+// Initialize fhevmjs
+await initFhevm();
+const fhevmInstance = await createInstance({
+  chainId: 11155111,
+  networkUrl: "https://ethereum-sepolia-rpc.publicnode.com",
+  gatewayUrl: "https://gateway.sepolia.zama.ai",
+});
+
+const plugin = new FhePlugin({
+  credentials: {
+    privateKey: process.env.PRIVATE_KEY!,
+    poolAddress: "0xfF87ec6cb07D8Aa26ABc81037e353A28c7752d73",
+    fhevmInstance,
+  },
+});
+
+const worker = plugin.getWorker();
+// 5 GameFunctions: fhe_deposit, fhe_pay, fhe_withdraw, fhe_balance, fhe_info
+```
+
+### OpenClaw Skill
+
+```bash
+# Balance check
+npx tsx scripts/balance.ts
+
+# Deposit USDC
+npx tsx scripts/deposit.ts --amount 10
+
+# Encrypted payment
+npx tsx scripts/pay.ts --to 0x... --amount 1
+
+# Request withdrawal
+npx tsx scripts/withdraw.ts --amount 5
+
+# Wallet info
+npx tsx scripts/info.ts
+```
+
+### ElizaOS Plugin
+
+See `examples/eliza-plugin/` for a complete ElizaOS integration example with 3 actions: `FHE_PAY`, `FHE_BALANCE`, `FHE_DEPOSIT`.
+
+## Demo
+
+```bash
+# Terminal demo (requires funded Sepolia wallet)
+PRIVATE_KEY=0x... npx tsx demo/agent-demo.ts
+
+# Run seller server
+npx tsx demo/agent-seller.ts
+
+# Run buyer client (in another terminal)
+PRIVATE_KEY=0x... npx tsx demo/agent-buyer.ts
+```
+
 ## Deploy
 
 ```bash
@@ -185,7 +308,7 @@ npx hardhat verify --network sepolia DEPLOYED_ADDRESS USDC_ADDRESS TREASURY_ADDR
 
 ### Audit Status
 
-V1.1 audited — 138 tests, all critical/high findings fixed:
+V1.1 audited — 211 tests, all critical/high findings fixed:
 
 - **C-1 Fixed:** Price comparison corrected (`>=` not `<=`) in middleware
 - **C-2 Fixed:** `minPrice >= MIN_PROTOCOL_FEE` enforced to prevent FHE underflow
@@ -201,15 +324,17 @@ V1.1 audited — 138 tests, all critical/high findings fixed:
 
 ### Known Limitations
 
-1. **Silent failure event emission** — `PaymentExecuted` fires on 0-transfer (inherent to FHE, cannot branch on encrypted booleans)
+1. **Silent failure event emission** — `PaymentExecuted` fires on 0-transfer (inherent to FHE)
 2. **In-memory rate limiter** — Resets on server restart (use external store in production)
-3. **Mock KMS in tests** — `finalizeWithdraw` uses `fhevm.publicDecrypt()` for mock proofs; production requires real KMS
+3. **Mock KMS in tests** — `finalizeWithdraw` uses mock proofs; production requires real KMS
 
 ## Tech Stack
 
 - Solidity 0.8.27 + `@fhevm/solidity@0.10` + `@fhevm/hardhat-plugin@0.4.0`
 - TypeScript SDK with `ethers@6` + `tsup` (ESM/CJS)
 - Hardhat with viaIR optimizer, Cancun EVM
+- Virtuals Protocol GAME SDK
+- React + Vite (frontend demo)
 
 ## License
 

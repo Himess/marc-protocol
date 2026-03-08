@@ -1,0 +1,33 @@
+{
+  "name": "@fhe-x402/virtuals-plugin",
+  "version": "0.1.0",
+  "description": "Virtuals Protocol GAME plugin for FHE x402 encrypted payments",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --dts --format cjs,esm --out-dir dist",
+    "test": "vitest run tests/plugin.test.ts"
+  },
+  "dependencies": {
+    "@virtuals-protocol/game": "^0.1.7",
+    "fhe-x402-sdk": "file:../../sdk",
+    "ethers": "^6.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.30",
+    "tsup": "^8.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.0.0"
+  },
+  "license": "BUSL-1.1"
+}

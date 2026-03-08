@@ -1,0 +1,20 @@
+{
+  "name": "@fhe-x402/openclaw-skill",
+  "version": "0.1.0",
+  "description": "OpenClaw skill for FHE x402 encrypted payments",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run tests/scripts.test.ts"
+  },
+  "dependencies": {
+    "fhe-x402-sdk": "file:../../sdk",
+    "ethers": "^6.16.0",
+    "fhevmjs": "^0.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.30",
+    "typescript": "^5.9.3",
+    "vitest": "^3.0.0"
+  },
+  "license": "BUSL-1.1"
+}

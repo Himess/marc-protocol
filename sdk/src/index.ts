@@ -23,3 +23,11 @@ export { fhePaywall } from "./fhePaywallMiddleware.js";
 
 // Fetch wrapper (client-side)
 export { fheFetch, createFheFetch, fheFetchWithCallback } from "./fheFetch.js";
+
+// Facilitator server
+export { createFacilitatorServer } from "./facilitator.js";
+export type { FacilitatorConfig } from "./facilitator.js";
+
+// ERC-8004 integration
+export { fhePaymentMethod, fhePaymentProof } from "./erc8004/index.js";
+export type { FhePaymentMethod, PaymentProofForFeedback } from "./erc8004/index.js";
