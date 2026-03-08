@@ -4,6 +4,10 @@ Privacy-preserving HTTP payment protocol using Fully Homomorphic Encryption (FHE
 
 **Scheme:** `fhe-confidential-v1` | **Chain:** Ethereum Sepolia | **Tests:** 138 (86 contract + 52 SDK)
 
+> *"Crypto privacy is needed if you want to make API calls without compromising the information of your access patterns. Even with a local AI agent, you can learn a lot about what someone is doing if you see all of their search engine calls. [...] providers will demand an anti-DoS mechanism, and realistically payment per call. By default that will be credit card or some corposlop stablecoin thing — so we need crypto privacy."*
+>
+> — [Vitalik Buterin, March 2026](https://x.com/VitalikButerin/status/2030510783134871594)
+
 ## Architecture
 
 ```
