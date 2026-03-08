@@ -56,10 +56,10 @@ npx hardhat test
 # Build + test SDK (72 tests)
 cd sdk && npm install && npx tsup && npx vitest run
 
-# Test Virtuals plugin (27 tests)
+# Test Virtuals plugin (28 tests)
 cd packages/virtuals-plugin && npm install && npx vitest run
 
-# Test OpenClaw skill (23 tests)
+# Test OpenClaw skill (25 tests)
 cd packages/openclaw-skill && npm install && npx vitest run
 
 # Build frontend
@@ -93,10 +93,10 @@ fhe-x402/
 │   │   └── erc8004/index.ts         # ERC-8004 helpers
 │   └── tests/                        # 72 SDK tests
 ├── packages/
-│   ├── virtuals-plugin/              # Virtuals GAME plugin (27 tests)
+│   ├── virtuals-plugin/              # Virtuals GAME plugin (28 tests)
 │   │   ├── src/fhePlugin.ts          # 5 GameFunctions
 │   │   └── tests/plugin.test.ts
-│   └── openclaw-skill/               # OpenClaw skill (23 tests)
+│   └── openclaw-skill/               # OpenClaw skill (25 tests)
 │       ├── scripts/                   # 6 CLI scripts
 │       └── tests/scripts.test.ts
 ├── examples/

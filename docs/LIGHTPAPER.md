@@ -206,7 +206,7 @@ All contracts verified on Etherscan.
 | Phase | Timeline | Deliverables |
 |-------|----------|-------------|
 | **V1.0** | Complete | ConfidentialPaymentPool, SDK (handler, middleware, fetch), 138 tests, Sepolia deployment |
-| **V1.1** | Complete | Facilitator server, ERC-8004 helpers, Virtuals plugin, OpenClaw skill, ElizaOS example, frontend demo, 210+ tests |
+| **V1.1** | Complete | Facilitator server, ERC-8004 helpers, Virtuals plugin, OpenClaw skill, ElizaOS example, frontend demo, 211 tests |
 | **V1.2** | Weeks 1-4 | Mainnet deployment, professional audit, documentation |
 | **V2.0** | Months 3-6 | L2 deployment (Base, Arbitrum), multi-token support, decryption gateway |
 | **V2.1** | Months 6-12 | Batch payments, subscription model, facilitator network |
@@ -230,7 +230,7 @@ All contracts verified on Etherscan.
 - Agent integrations: Virtuals GAME (5 functions), OpenClaw (6 scripts), ElizaOS (3 actions)
 - ERC-8004 Level 1 integration
 - React frontend demo
-- 210+ tests, V1.1 audited, deployed on Sepolia
+- 211 tests, V1.1 audited, deployed on Sepolia
 
 **What we'll build next:**
 1. Ethereum mainnet deployment with professional audit

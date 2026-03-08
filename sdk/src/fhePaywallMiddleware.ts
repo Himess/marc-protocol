@@ -53,24 +53,47 @@ function checkRateLimit(ip: string, maxRequests: number = 60, windowMs: number =
 // ============================================================================
 
 class InMemoryNonceStore implements NonceStore {
-  private nonces = new Set<string>();
+  private nonces = new Map<string, number>(); // nonce → expiry timestamp
   private readonly maxEntries: number;
+  private readonly ttlMs: number;
 
-  constructor(maxEntries: number = 100_000) {
+  constructor(maxEntries: number = 100_000, ttlMs: number = 86_400_000) {
     this.maxEntries = maxEntries;
+    this.ttlMs = ttlMs;
   }
 
   check(nonce: string): boolean {
-    return !this.nonces.has(nonce);
+    const expiry = this.nonces.get(nonce);
+    if (expiry === undefined) return true;
+    // Expired nonce — treat as new
+    if (Date.now() > expiry) {
+      this.nonces.delete(nonce);
+      return true;
+    }
+    return false;
   }
 
   add(nonce: string): void {
+    // Evict expired entries if at capacity
     if (this.nonces.size >= this.maxEntries) {
-      // Evict oldest (Set iteration order = insertion order)
-      const first = this.nonces.values().next().value;
-      if (first) this.nonces.delete(first);
+      const now = Date.now();
+      for (const [key, expiry] of this.nonces) {
+        if (now > expiry) this.nonces.delete(key);
+      }
+      // If still at capacity, evict oldest
+      if (this.nonces.size >= this.maxEntries) {
+        const first = this.nonces.keys().next().value;
+        if (first) this.nonces.delete(first);
+      }
     }
-    this.nonces.add(nonce);
+    this.nonces.set(nonce, Date.now() + this.ttlMs);
+  }
+
+  /** Atomic check-and-add: returns true if nonce is new, false if replay. */
+  checkAndAdd(nonce: string): boolean {
+    if (!this.check(nonce)) return false;
+    this.add(nonce);
+    return true;
   }
 }
 
@@ -188,13 +211,21 @@ export function fhePaywall(config: FhePaywallConfig): RequestHandler {
       return;
     }
 
-    // Nonce replay prevention (supports async external stores)
-    const isNewNonce = await nonceStore.check(payload.nonce);
-    if (!isNewNonce) {
-      res.status(400).json({ error: "Nonce already used" });
-      return;
+    // Nonce replay prevention — atomic check-and-add when supported
+    if ("checkAndAdd" in nonceStore && typeof nonceStore.checkAndAdd === "function") {
+      const isNew = await nonceStore.checkAndAdd(payload.nonce);
+      if (!isNew) {
+        res.status(400).json({ error: "Nonce already used" });
+        return;
+      }
+    } else {
+      const isNewNonce = await nonceStore.check(payload.nonce);
+      if (!isNewNonce) {
+        res.status(400).json({ error: "Nonce already used" });
+        return;
+      }
+      await nonceStore.add(payload.nonce);
     }
-    await nonceStore.add(payload.nonce);
 
     // ===== Verify on-chain event =====
     try {

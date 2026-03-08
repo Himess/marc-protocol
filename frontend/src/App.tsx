@@ -7,6 +7,9 @@ import WithdrawForm from "./components/WithdrawForm";
 import { BrowserProvider, JsonRpcSigner, Contract, ethers } from "ethers";
 import { initFhevm, createInstance } from "fhevmjs/web";
 
+// Sepolia RPC URL used for fhevmjs initialization
+const SEPOLIA_RPC = "https://ethereum-sepolia-rpc.publicnode.com";
+
 const POOL_ADDRESS = "0xfF87ec6cb07D8Aa26ABc81037e353A28c7752d73";
 const USDC_ADDRESS = "0x229146B746cf3A314dee33f08b84f8EFd5F314F4";
 const CHAIN_ID = 11155111;
@@ -14,8 +17,8 @@ const GATEWAY_URL = "https://gateway.sepolia.zama.ai";
 
 const POOL_ABI = [
   "function deposit(uint64 amount) external",
-  "function pay(address to, externalEuint64 encryptedAmount, bytes calldata inputProof, uint64 minPrice, bytes32 nonce) external",
-  "function requestWithdraw(externalEuint64 encryptedAmount, bytes calldata inputProof) external",
+  "function pay(address to, bytes32 encryptedAmount, bytes calldata inputProof, uint64 minPrice, bytes32 nonce) external",
+  "function requestWithdraw(bytes32 encryptedAmount, bytes calldata inputProof) external",
   "function isInitialized(address account) external view returns (bool)",
 ];
 
@@ -94,11 +97,9 @@ export default function App() {
     if (!fhevmInitPromise.current) {
       fhevmInitPromise.current = (async () => {
         await initFhevm();
-        const provider = new BrowserProvider((window as any).ethereum);
-        const network = await provider.getNetwork();
         const instance = await createInstance({
-          chainId: Number(network.chainId),
-          networkUrl: provider._getConnection().url,
+          chainId: CHAIN_ID,
+          networkUrl: SEPOLIA_RPC,
           gatewayUrl: GATEWAY_URL,
         });
         fhevmRef.current = instance as unknown as FhevmInstance;

@@ -106,6 +106,8 @@ export interface NonceStore {
   check(nonce: string): boolean | Promise<boolean>;
   /** Mark nonce as used. */
   add(nonce: string): void | Promise<void>;
+  /** Atomic check-and-add. Returns true if nonce is new, false if replay. Optional — if not provided, check+add are called separately. */
+  checkAndAdd?(nonce: string): boolean | Promise<boolean>;
 }
 
 // ============================================================================

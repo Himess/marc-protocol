@@ -166,5 +166,16 @@ function encodePaymentHeader(payload: FhePaymentPayload): string {
 
 export function decodePaymentHeader(header: string): FhePaymentPayload {
   const json = Buffer.from(header, "base64").toString("utf-8");
-  return JSON.parse(json) as FhePaymentPayload;
+  const parsed = JSON.parse(json);
+  if (
+    !parsed ||
+    typeof parsed.scheme !== "string" ||
+    typeof parsed.txHash !== "string" ||
+    typeof parsed.nonce !== "string" ||
+    typeof parsed.from !== "string" ||
+    typeof parsed.chainId !== "number"
+  ) {
+    throw new Error("Invalid payment payload: missing required fields");
+  }
+  return parsed as FhePaymentPayload;
 }

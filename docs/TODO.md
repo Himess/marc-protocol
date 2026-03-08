@@ -16,14 +16,14 @@
 
 - [x] Facilitator server (Express, /info, /verify, /health)
 - [x] ERC-8004 integration helpers (fhePaymentMethod, fhePaymentProof)
-- [x] Virtuals GAME plugin (5 GameFunctions, 27 tests)
-- [x] OpenClaw skill (6 scripts, 23 tests)
+- [x] Virtuals GAME plugin (5 GameFunctions, 28 tests)
+- [x] OpenClaw skill (6 scripts, 25 tests)
 - [x] ElizaOS example plugin (3 actions)
 - [x] React frontend demo (connect, deposit, pay, balance, withdraw)
 - [x] Demo scripts (agent-demo, agent-buyer, agent-seller)
 - [x] Documentation (LIGHTPAPER, PROTOCOL, ROADMAP)
 - [x] CI update (virtuals-plugin, openclaw-skill, frontend jobs)
-- [x] 210+ total tests
+- [x] 211 total tests (86 contract + 72 SDK + 28 Virtuals + 25 OpenClaw)
 
 ## In Progress
 

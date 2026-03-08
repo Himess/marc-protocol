@@ -7,7 +7,7 @@
 - Protocol fee: max(0.1%, $0.01 minimum)
 - 2-step async withdrawal via KMS
 - TypeScript SDK: payment handler, paywall middleware, auto-402 fetch
-- 138 tests (86 contract + 52 SDK)
+- 138 tests (86 contract + 52 SDK) at initial release
 - Deployed and verified on Ethereum Sepolia
 - Security audit: 11 findings fixed
 
@@ -21,7 +21,7 @@
 - React frontend demo
 - Demo scripts (terminal demo, buyer/seller examples)
 - Documentation (Lightpaper, Protocol spec, Roadmap)
-- 210+ tests across all packages
+- 211 tests across all packages (86 contract + 72 SDK + 28 Virtuals + 25 OpenClaw)
 - CI/CD for all packages
 
 ## V1.2 — Production Ready (Planned)

@@ -2,7 +2,7 @@
   "name": "fhe-x402-sdk",
   "version": "0.1.0",
   "description": "FHE-powered x402 payment SDK — encrypted amounts, public participants",
-  "license": "MIT",
+  "license": "BUSL-1.1",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

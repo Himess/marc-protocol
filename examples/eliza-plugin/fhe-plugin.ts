@@ -104,7 +104,7 @@ export const fhePlugin: Plugin = {
         const amount = ctx.params.amount;
         if (!amount) return { success: false, message: "Amount required (in USDC)" };
 
-        const amountRaw = BigInt(Math.floor(parseFloat(amount) * 1_000_000));
+        const amountRaw = BigInt(Math.round(parseFloat(amount) * 1_000_000));
 
         // Approve + deposit (plaintext — no FHE encryption needed for deposit)
         const usdc = new Contract(

@@ -29,8 +29,8 @@ export async function fheFetch(
   options: FheFetchOptions
 ): Promise<Response> {
   const {
-    poolAddress,
-    rpcUrl,
+    poolAddress: _poolAddress,
+    rpcUrl: _rpcUrl,
     signer,
     fhevmInstance,
     maxPayment,
@@ -38,6 +38,8 @@ export async function fheFetch(
     dryRun,
     ...fetchOptions
   } = options;
+  void _poolAddress;
+  void _rpcUrl;
 
   const response = await fetch(url, fetchOptions);
 
@@ -52,11 +54,7 @@ export async function fheFetch(
   });
 
   let result: FhePaymentResult | null;
-  try {
-    result = await handler.handlePaymentRequired(responseForParsing);
-  } catch (err) {
-    throw err;
-  }
+  result = await handler.handlePaymentRequired(responseForParsing);
 
   if (!result) return response;
 
@@ -80,8 +78,8 @@ export async function fheFetchWithCallback(
   onPayment: (result: FhePaymentResult, success: boolean) => void
 ): Promise<Response> {
   const {
-    poolAddress,
-    rpcUrl,
+    poolAddress: _poolAddress2,
+    rpcUrl: _rpcUrl2,
     signer,
     fhevmInstance,
     maxPayment,
@@ -89,6 +87,8 @@ export async function fheFetchWithCallback(
     dryRun,
     ...fetchOptions
   } = options;
+  void _poolAddress2;
+  void _rpcUrl2;
 
   const response = await fetch(url, fetchOptions);
 

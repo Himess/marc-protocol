@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
 import "@fhevm/solidity/lib/FHE.sol";
@@ -208,7 +208,7 @@ contract ConfidentialPaymentPool is ZamaEthereumConfig, IConfidentialPaymentPool
     function requestWithdraw(
         externalEuint64 encryptedAmount,
         bytes calldata inputProof
-    ) external {
+    ) external nonReentrant {
         if (withdrawRequested[msg.sender]) revert WithdrawAlreadyRequested();
 
         euint64 amount = FHE.fromExternal(encryptedAmount, inputProof);
