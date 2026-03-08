@@ -24,6 +24,8 @@
 - [x] Documentation (LIGHTPAPER, PROTOCOL, ROADMAP)
 - [x] CI update (virtuals-plugin, openclaw-skill, frontend jobs)
 - [x] 211 total tests (86 contract + 72 SDK + 28 Virtuals + 25 OpenClaw)
+- [x] Sepolia on-chain integration tests (13 tests, real FHE via Zama coprocessor)
+- [x] 224 total tests (86 mock + 13 on-chain + 72 SDK + 28 Virtuals + 25 OpenClaw)
 
 ## In Progress
 

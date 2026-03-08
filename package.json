@@ -35,7 +35,7 @@
   "scripts": {
     "compile": "cross-env TS_NODE_TRANSPILE_ONLY=true hardhat compile",
     "test": "hardhat test",
-    "test:sepolia": "hardhat test --network sepolia",
+    "test:sepolia": "hardhat test test/Sepolia.onchain.test.ts --network sepolia",
     "deploy:sepolia": "hardhat deploy --network sepolia",
     "typechain": "cross-env TS_NODE_TRANSPILE_ONLY=true hardhat typechain"
   },

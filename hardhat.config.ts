@@ -64,6 +64,9 @@ const config: HardhatUserConfig = {
       evmVersion: "cancun",
     },
   },
+  mocha: {
+    timeout: 600_000, // 10 min — needed for real FHE ops on Sepolia
+  },
   typechain: {
     outDir: "types",
     target: "ethers-v6",

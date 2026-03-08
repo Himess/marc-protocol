@@ -2,7 +2,7 @@
 
 Privacy-preserving HTTP payment protocol using Fully Homomorphic Encryption (FHE) on Ethereum. Agents pay for API access with encrypted USDC amounts — servers verify on-chain events without seeing balances.
 
-**Scheme:** `fhe-confidential-v1` | **Chain:** Ethereum Sepolia | **Tests:** 211 (86 contract + 72 SDK + 28 Virtuals + 25 OpenClaw)
+**Scheme:** `fhe-confidential-v1` | **Chain:** Ethereum Sepolia | **Tests:** 224 (86 contract + 13 on-chain + 72 SDK + 28 Virtuals + 25 OpenClaw)
 
 > *"Crypto privacy is needed if you want to make API calls without compromising the information of your access patterns. Even with a local AI agent, you can learn a lot about what someone is doing if you see all of their search engine calls. [...] providers will demand an anti-DoS mechanism, and realistically payment per call. By default that will be credit card or some corposlop stablecoin thing — so we need crypto privacy."*
 >
@@ -50,8 +50,11 @@ npm install
 # Compile contracts
 npx hardhat compile
 
-# Run contract tests (86 tests)
+# Run contract tests (86 mock tests — fast, no ETH needed)
 npx hardhat test
+
+# Run Sepolia on-chain tests (13 tests — real FHE, requires funded wallet)
+PRIVATE_KEY=0x... SEPOLIA_RPC_URL=https://... npm run test:sepolia
 
 # Build + test SDK (72 tests)
 cd sdk && npm install && npx tsup && npx vitest run
@@ -76,13 +79,14 @@ fhe-x402/
 │   │   └── IConfidentialPaymentPool.sol
 │   └── mocks/
 │       └── MockUSDC.sol
-├── test/                             # 86 contract tests
+├── test/                             # 86 mock + 13 on-chain tests
 │   ├── Pool.deposit.test.ts
 │   ├── Pool.pay.test.ts
 │   ├── Pool.withdraw.test.ts
 │   ├── Pool.fee.test.ts
 │   ├── Pool.edge.test.ts
-│   └── Demo.e2e.test.ts
+│   ├── Demo.e2e.test.ts
+│   └── Sepolia.onchain.test.ts       # Real FHE on Sepolia (13 tests)
 ├── sdk/
 │   ├── src/
 │   │   ├── types.ts                  # FHE x402 types + NonceStore
@@ -308,7 +312,7 @@ npx hardhat verify --network sepolia DEPLOYED_ADDRESS USDC_ADDRESS TREASURY_ADDR
 
 ### Audit Status
 
-V1.1 audited — 211 tests, all critical/high findings fixed:
+V1.1 audited — 224 tests (including 13 real on-chain FHE tests), all critical/high findings fixed:
 
 - **C-1 Fixed:** Price comparison corrected (`>=` not `<=`) in middleware
 - **C-2 Fixed:** `minPrice >= MIN_PROTOCOL_FEE` enforced to prevent FHE underflow
