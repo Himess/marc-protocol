@@ -10,13 +10,19 @@ interface IConfidentialPaymentPool {
     // ═══════════════════════════════════════
 
     event Deposited(address indexed user, uint64 amount);
-    event PaymentExecuted(address indexed from, address indexed to, uint64 minPrice, bytes32 nonce);
-    event WithdrawRequested(address indexed user);
+    event PaymentExecuted(address indexed from, address indexed to, uint64 minPrice, bytes32 nonce, bytes32 memo);
+    event WithdrawRequested(address indexed user, uint256 expiresAt);
     event WithdrawCancelled(address indexed user);
+    event WithdrawExpired(address indexed user);
     event WithdrawFinalized(address indexed user, uint64 amount);
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
+    event TreasuryWithdrawn(address indexed treasury, uint64 amount);
     event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event BalanceRequested(address indexed user);
+    event PoolCapUpdated(uint256 maxPoolBalance, uint256 maxUserDeposit);
+    event Paused(address account);
+    event Unpaused(address account);
 
     // ═══════════════════════════════════════
     // ERRORS
@@ -30,8 +36,13 @@ interface IConfidentialPaymentPool {
     error NonceAlreadyUsed();
     error WithdrawNotRequested();
     error WithdrawAlreadyRequested();
+    error WithdrawNotExpired();
     error OnlyOwner();
     error OnlyPendingOwner();
+    error PoolCapExceeded();
+    error UserCapExceeded();
+    error ContractPaused();
+    error ContractNotPaused();
 
     // ═══════════════════════════════════════
     // CORE FUNCTIONS
@@ -46,7 +57,8 @@ interface IConfidentialPaymentPool {
         externalEuint64 encryptedAmount,
         bytes calldata inputProof,
         uint64 minPrice,
-        bytes32 nonce
+        bytes32 nonce,
+        bytes32 memo
     ) external;
 
     /// @notice Request async decryption of withdraw amount
@@ -57,6 +69,9 @@ interface IConfidentialPaymentPool {
 
     /// @notice Cancel a pending withdrawal and refund to balance
     function cancelWithdraw() external;
+
+    /// @notice Force-cancel an expired withdrawal (callable by anyone after timeout)
+    function expireWithdraw(address user) external;
 
     /// @notice Finalize withdrawal with KMS decryption proof
     function finalizeWithdraw(
@@ -70,6 +85,21 @@ interface IConfidentialPaymentPool {
     // ═══════════════════════════════════════
     // ADMIN
     // ═══════════════════════════════════════
+
+    /// @notice Pause all pool operations (emergency)
+    function pause() external;
+
+    /// @notice Unpause pool operations
+    function unpause() external;
+
+    /// @notice Update treasury address
+    function setTreasury(address newTreasury) external;
+
+    /// @notice Withdraw accrued fees from treasury's encrypted balance to USDC
+    function treasuryWithdraw(uint64 amount) external;
+
+    /// @notice Set pool and per-user deposit caps
+    function setPoolCaps(uint256 _maxPoolBalance, uint256 _maxUserDeposit) external;
 
     /// @notice Start ownership transfer (2-step)
     function transferOwnership(address newOwner) external;
@@ -89,4 +119,13 @@ interface IConfidentialPaymentPool {
 
     /// @notice Check if a nonce has been used
     function usedNonces(bytes32 nonce) external view returns (bool);
+
+    /// @notice Check if user has initialized balance
+    function isInitialized(address account) external view returns (bool);
+
+    /// @notice Get pending withdraw handle
+    function pendingWithdrawOf(address account) external view returns (euint64);
+
+    /// @notice Get withdraw request timestamp
+    function withdrawRequestedAt(address account) external view returns (uint256);
 }

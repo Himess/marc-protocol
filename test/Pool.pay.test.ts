@@ -50,7 +50,8 @@ describe("ConfidentialPaymentPool — Pay", function () {
       encrypted.handles[0],
       encrypted.inputProof,
       1_000_000, // minPrice
-      nonce
+      nonce,
+      ethers.ZeroHash
     );
 
     // Bob should receive 1_000_000 - fee
@@ -72,7 +73,8 @@ describe("ConfidentialPaymentPool — Pay", function () {
       encrypted.handles[0],
       encrypted.inputProof,
       1_000_000,
-      nonce
+      nonce,
+      ethers.ZeroHash
     );
     const receipt = await tx.wait();
 
@@ -93,14 +95,14 @@ describe("ConfidentialPaymentPool — Pay", function () {
     input1.add64(1_000_000n);
     const enc1 = await input1.encrypt();
 
-    await pool.connect(alice).pay(bob.address, enc1.handles[0], enc1.inputProof, 1_000_000, nonce);
+    await pool.connect(alice).pay(bob.address, enc1.handles[0], enc1.inputProof, 1_000_000, nonce, ethers.ZeroHash);
 
     const input2 = fhevm.createEncryptedInput(poolAddress, alice.address);
     input2.add64(1_000_000n);
     const enc2 = await input2.encrypt();
 
     await expect(
-      pool.connect(alice).pay(bob.address, enc2.handles[0], enc2.inputProof, 1_000_000, nonce)
+      pool.connect(alice).pay(bob.address, enc2.handles[0], enc2.inputProof, 1_000_000, nonce, ethers.ZeroHash)
     ).to.be.revertedWithCustomError(pool, "NonceAlreadyUsed");
   });
 
@@ -116,7 +118,8 @@ describe("ConfidentialPaymentPool — Pay", function () {
         encrypted.handles[0],
         encrypted.inputProof,
         1_000_000,
-        nonce
+        nonce,
+        ethers.ZeroHash
       )
     ).to.be.revertedWithCustomError(pool, "ZeroAddress");
   });
@@ -133,7 +136,7 @@ describe("ConfidentialPaymentPool — Pay", function () {
     const aliceBalBefore = await fhevm.userDecryptEuint(FhevmType.euint64, aliceEncBefore, poolAddress, alice);
 
     // Should NOT revert — silent failure
-    await pool.connect(bob).pay(alice.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce);
+    await pool.connect(bob).pay(alice.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce, ethers.ZeroHash);
 
     // Alice balance should be unchanged (bob had no funds → 0 transferred)
     const aliceEncAfter = await pool.balanceOf(alice.address);
@@ -148,7 +151,7 @@ describe("ConfidentialPaymentPool — Pay", function () {
     const encrypted = await input.encrypt();
 
     // minPrice = 1 USDC, but encrypted amount = 0.5 USDC
-    await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce);
+    await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce, ethers.ZeroHash);
 
     // Bob should have 0 (silent failure)
     const bobEnc = await pool.balanceOf(bob.address);
@@ -165,7 +168,7 @@ describe("ConfidentialPaymentPool — Pay", function () {
     input.add64(5_000_000n);
     const encrypted = await input.encrypt();
 
-    await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 5_000_000, nonce);
+    await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 5_000_000, nonce, ethers.ZeroHash);
 
     const aliceEncAfter = await pool.balanceOf(alice.address);
     const aliceBalAfter = await fhevm.userDecryptEuint(FhevmType.euint64, aliceEncAfter, poolAddress, alice);
@@ -181,7 +184,7 @@ describe("ConfidentialPaymentPool — Pay", function () {
     const encrypted = await input.encrypt();
 
     // minPrice = 10 USDC → fee = max(10_000_000 * 10/10_000, 10_000) = max(10_000, 10_000) = 10_000
-    await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 10_000_000, nonce);
+    await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 10_000_000, nonce, ethers.ZeroHash);
 
     const treasuryEnc = await pool.balanceOf(treasury.address);
     const treasuryBal = await fhevm.userDecryptEuint(FhevmType.euint64, treasuryEnc, poolAddress, treasury);
@@ -195,7 +198,7 @@ describe("ConfidentialPaymentPool — Pay", function () {
       const input = fhevm.createEncryptedInput(poolAddress, alice.address);
       input.add64(1_000_000n);
       const encrypted = await input.encrypt();
-      await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce);
+      await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce, ethers.ZeroHash);
     }
 
     const bobEnc = await pool.balanceOf(bob.address);
@@ -210,7 +213,7 @@ describe("ConfidentialPaymentPool — Pay", function () {
     input.add64(2_000_000n);
     const encrypted = await input.encrypt();
 
-    await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 2_000_000, nonce);
+    await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 2_000_000, nonce, ethers.ZeroHash);
 
     const bobEnc = await pool.balanceOf(bob.address);
     const bobBal = await fhevm.userDecryptEuint(FhevmType.euint64, bobEnc, poolAddress, bob);
@@ -225,7 +228,7 @@ describe("ConfidentialPaymentPool — Pay", function () {
     const encrypted = await input.encrypt();
 
     // minPrice = 1 USDC, but paying 5 USDC
-    await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce);
+    await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce, ethers.ZeroHash);
 
     const bobEnc = await pool.balanceOf(bob.address);
     const bobBal = await fhevm.userDecryptEuint(FhevmType.euint64, bobEnc, poolAddress, bob);
@@ -242,7 +245,7 @@ describe("ConfidentialPaymentPool — Pay", function () {
     input.add64(1_000_000n);
     const encrypted = await input.encrypt();
 
-    await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce);
+    await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce, ethers.ZeroHash);
     expect(await pool.usedNonces(nonce)).to.equal(true);
   });
 
@@ -253,7 +256,7 @@ describe("ConfidentialPaymentPool — Pay", function () {
     input.add64(1_000_000n);
     const encrypted = await input.encrypt();
 
-    await pool.connect(bob).pay(alice.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce);
+    await pool.connect(bob).pay(alice.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce, ethers.ZeroHash);
     expect(await pool.usedNonces(nonce)).to.equal(true);
   });
 
@@ -269,8 +272,8 @@ describe("ConfidentialPaymentPool — Pay", function () {
     input2.add64(1_000_000n);
     const enc2 = await input2.encrypt();
 
-    await pool.connect(alice).pay(bob.address, enc1.handles[0], enc1.inputProof, 1_000_000, nonce1);
-    await pool.connect(alice).pay(bob.address, enc2.handles[0], enc2.inputProof, 1_000_000, nonce2);
+    await pool.connect(alice).pay(bob.address, enc1.handles[0], enc1.inputProof, 1_000_000, nonce1, ethers.ZeroHash);
+    await pool.connect(alice).pay(bob.address, enc2.handles[0], enc2.inputProof, 1_000_000, nonce2, ethers.ZeroHash);
 
     // Both should succeed
     const bobEnc = await pool.balanceOf(bob.address);
@@ -285,7 +288,7 @@ describe("ConfidentialPaymentPool — Pay", function () {
     const encrypted = await input.encrypt();
 
     await expect(
-      pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 5_000, nonce)
+      pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 5_000, nonce, ethers.ZeroHash)
     ).to.be.revertedWithCustomError(pool, "MinPriceTooLow");
   });
 
@@ -296,7 +299,7 @@ describe("ConfidentialPaymentPool — Pay", function () {
     const encrypted = await input.encrypt();
 
     await expect(
-      pool.connect(alice).pay(treasury.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce)
+      pool.connect(alice).pay(treasury.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce, ethers.ZeroHash)
     ).to.be.revertedWithCustomError(pool, "InvalidRecipient");
   });
 
@@ -307,7 +310,7 @@ describe("ConfidentialPaymentPool — Pay", function () {
     const encrypted = await input.encrypt();
 
     // minPrice = 10_000, fee = 10_000, net = 0 → bob gets 0 but tx succeeds
-    await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 10_000, nonce);
+    await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 10_000, nonce, ethers.ZeroHash);
 
     const bobEnc = await pool.balanceOf(bob.address);
     const bobBal = await fhevm.userDecryptEuint(FhevmType.euint64, bobEnc, poolAddress, bob);
@@ -321,7 +324,7 @@ describe("ConfidentialPaymentPool — Pay", function () {
     input.add64(1_000_000n);
     const encrypted = await input.encrypt();
 
-    const tx = await pool.connect(bob).pay(alice.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce);
+    const tx = await pool.connect(bob).pay(alice.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce, ethers.ZeroHash);
     const receipt = await tx.wait();
 
     const event = receipt.logs.find((log: any) => {

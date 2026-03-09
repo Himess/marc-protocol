@@ -234,14 +234,14 @@ describe("ConfidentialPaymentPool — Edge Cases", function () {
       const input1 = fhevm.createEncryptedInput(poolAddress, alice.address);
       input1.add64(5_000_000n);
       const enc1 = await input1.encrypt();
-      await pool.connect(alice).pay(bob.address, enc1.handles[0], enc1.inputProof, 5_000_000, nonce1);
+      await pool.connect(alice).pay(bob.address, enc1.handles[0], enc1.inputProof, 5_000_000, nonce1, ethers.ZeroHash);
 
       // Bob pays Alice
       const nonce2 = randomNonce();
       const input2 = fhevm.createEncryptedInput(poolAddress, bob.address);
       input2.add64(3_000_000n);
       const enc2 = await input2.encrypt();
-      await pool.connect(bob).pay(alice.address, enc2.handles[0], enc2.inputProof, 3_000_000, nonce2);
+      await pool.connect(bob).pay(alice.address, enc2.handles[0], enc2.inputProof, 3_000_000, nonce2, ethers.ZeroHash);
 
       const aliceEnc = await pool.balanceOf(alice.address);
       const aliceBal = await fhevm.userDecryptEuint(FhevmType.euint64, aliceEnc, poolAddress, alice);
@@ -258,7 +258,7 @@ describe("ConfidentialPaymentPool — Edge Cases", function () {
       const input = fhevm.createEncryptedInput(poolAddress, alice.address);
       input.add64(2_000_000n);
       const encrypted = await input.encrypt();
-      await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 2_000_000, nonce);
+      await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 2_000_000, nonce, ethers.ZeroHash);
 
       // Alice: 9_990_000 - 2_000_000 = 7_990_000
       const aliceEnc = await pool.balanceOf(alice.address);
@@ -328,7 +328,7 @@ describe("ConfidentialPaymentPool — Edge Cases", function () {
       const encrypted = await input.encrypt();
 
       // Alice pays herself — should succeed, lose only the fee
-      await pool.connect(alice).pay(alice.address, encrypted.handles[0], encrypted.inputProof, 5_000_000, nonce);
+      await pool.connect(alice).pay(alice.address, encrypted.handles[0], encrypted.inputProof, 5_000_000, nonce, ethers.ZeroHash);
 
       const aliceEnc = await pool.balanceOf(alice.address);
       const aliceBal = await fhevm.userDecryptEuint(FhevmType.euint64, aliceEnc, poolAddress, alice);

@@ -18,7 +18,7 @@ export interface FacilitatorConfig {
 }
 
 const POOL_EVENT_ABI = [
-  "event PaymentExecuted(address indexed from, address indexed to, uint64 minPrice, bytes32 nonce)",
+  "event PaymentExecuted(address indexed from, address indexed to, uint64 minPrice, bytes32 nonce, bytes32 memo)",
 ];
 
 /**

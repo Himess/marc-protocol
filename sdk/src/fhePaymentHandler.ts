@@ -4,10 +4,9 @@ import type {
   FhePaymentPayload,
   FhePaymentRequired,
   FhevmInstance,
-  ResourceInfo,
-  POOL_ABI,
 } from "./types.js";
 import { FHE_SCHEME } from "./types.js";
+import { PaymentError, EncryptionError } from "./errors.js";
 
 // ============================================================================
 // Types
@@ -16,6 +15,8 @@ import { FHE_SCHEME } from "./types.js";
 export interface FhePaymentHandlerOptions {
   maxPayment?: bigint;
   allowedNetworks?: string[];
+  /** Optional memo to attach to payments (bytes32 hex). Defaults to 0x0. */
+  memo?: string;
 }
 
 export interface FhePaymentResult {
@@ -98,30 +99,44 @@ export class FhePaymentHandler {
     const nonce = ethers.hexlify(ethers.randomBytes(32));
 
     // Encrypt amount with fhevmjs
-    const input = this.fhevmInstance.createEncryptedInput(
-      requirements.poolAddress,
-      signerAddress
-    );
-    input.add64(amount);
-    const encrypted = await input.encrypt();
+    let encrypted: { handles: string[]; inputProof: string };
+    try {
+      const input = this.fhevmInstance.createEncryptedInput(
+        requirements.poolAddress,
+        signerAddress
+      );
+      input.add64(amount);
+      encrypted = await input.encrypt();
+    } catch (err) {
+      throw new EncryptionError(
+        `FHE encryption failed: ${err instanceof Error ? err.message : String(err)}`,
+        { amount: amount.toString(), poolAddress: requirements.poolAddress }
+      );
+    }
 
     // Call pool.pay() on-chain
     const poolABI = [
-      "function pay(address to, bytes32 encryptedAmount, bytes calldata inputProof, uint64 minPrice, bytes32 nonce) external",
+      "function pay(address to, bytes32 encryptedAmount, bytes calldata inputProof, uint64 minPrice, bytes32 nonce, bytes32 memo) external",
     ];
     const pool = new Contract(requirements.poolAddress, poolABI, this.signer);
 
+    const memo = this.options.memo || ethers.ZeroHash;
     const tx = await pool.pay(
       requirements.recipientAddress,
       encrypted.handles[0],
       encrypted.inputProof,
       amount,
-      nonce
+      nonce,
+      memo
     );
     const receipt = await tx.wait();
 
     if (!receipt || receipt.status === 0) {
-      throw new Error("Payment transaction failed");
+      throw new PaymentError("Payment transaction failed", {
+        txHash: tx.hash,
+        to: requirements.recipientAddress,
+        amount: amount.toString(),
+      });
     }
 
     // Build payment payload

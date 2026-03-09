@@ -23,20 +23,46 @@
 - [x] Demo scripts (agent-demo, agent-buyer, agent-seller)
 - [x] Documentation (LIGHTPAPER, PROTOCOL, ROADMAP)
 - [x] CI update (virtuals-plugin, openclaw-skill, frontend jobs)
-- [x] 211 total tests (86 contract + 72 SDK + 28 Virtuals + 25 OpenClaw)
 - [x] Sepolia on-chain integration tests (13 tests, real FHE via Zama coprocessor)
-- [x] 224 total tests (86 mock + 13 on-chain + 72 SDK + 28 Virtuals + 25 OpenClaw)
+
+## Completed (V1.2)
+
+- [x] Contract: Pausable (pause/unpause with emergency escape hatches)
+- [x] Contract: Treasury withdraw (treasury + owner can withdraw accrued fees to USDC)
+- [x] Contract: Withdraw timeout (7-day expiry, anyone can force-expire after timeout)
+- [x] Contract: TVL + per-user deposit caps (setPoolCaps, PoolCapExceeded/UserCapExceeded)
+- [x] Contract: Payment memo (bytes32 memo in pay() and PaymentExecuted event)
+- [x] Contract: Treasury fee migration (setTreasury migrates encrypted balance)
+- [x] Contract: BalanceRequested event
+- [x] Contract: 33 new V1.2 tests (Pause, Treasury Withdraw, Timeout, Caps, Memo)
+- [x] SDK: POOL_ABI updated for V1.2 (memo param, new events, new functions)
+- [x] SDK: Error classes (FheX402Error, PaymentError, EncryptionError, TimeoutError, NetworkError)
+- [x] SDK: fheFetch retry logic (maxRetries, retryDelayMs with linear backoff)
+- [x] SDK: fheFetch timeout (timeoutMs with AbortController)
+- [x] SDK: memo option in FhePaymentHandler and FheFetchOptions
+- [x] SDK: 85 tests (was 72, +9 error tests, +4 fetch tests)
+- [x] Virtuals GAME plugin: fhe_finalize_withdraw + fhe_cancel_withdraw GameFunctions (7 total)
+- [x] OpenClaw skill: finalize-withdraw.ts + cancel-withdraw.ts scripts (7 total)
+- [x] ElizaOS plugin: FHE_WITHDRAW_FINALIZE + FHE_CANCEL_WITHDRAW actions (5 total)
+- [x] Frontend: cancel withdrawal button, transaction history with Etherscan links
+- [x] Frontend: V1.2 ABI sync (memo param in pay())
+- [x] Infrastructure: .eslintrc.js, .solhintrc.json, .prettierrc, .editorconfig, .nvmrc
+- [x] Infrastructure: GitHub issue templates, PR template, CONTRIBUTING.md, dependabot.yml
+- [x] Infrastructure: CI lint + security jobs, root package.json scripts
+- [x] 245+ total tests (132 contract + 85 SDK + 28+ Virtuals + 25+ OpenClaw)
 
 ## In Progress
 
 - [ ] Demo video recording (5-minute walkthrough)
 
-## Planned (V1.2)
+## Planned (V1.3)
 
-- [ ] Professional security audit
+- [ ] Professional security audit (Trail of Bits / OpenZeppelin / Quantstamp)
+- [ ] Bug bounty program (Immunefi / Code4rena)
 - [ ] Ethereum mainnet deployment
-- [ ] Gas optimization (batch operations)
+- [ ] Batch operations (batchPay, batchDeposit)
 - [ ] Redis NonceStore example implementation
+- [ ] UUPS proxy upgrade pattern
 
 ## Planned (V2.0)
 
@@ -44,6 +70,9 @@
 - [ ] Multi-token support (WETH, DAI)
 - [ ] Decryption gateway for browser balance checking
 - [ ] Subscription payment model (recurring encrypted payments)
+- [ ] Allowance / delegate spending pattern (approve + payFrom)
+- [ ] Decentralized KMS (multi-party threshold FHE)
+- [ ] Subgraph deployment (index all events for analytics)
 
 ## Planned (V2.1)
 

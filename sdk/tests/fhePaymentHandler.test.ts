@@ -203,6 +203,13 @@ describe("FhePaymentHandler", () => {
       });
       expect(h).toBeDefined();
     });
+
+    it("should accept memo option", () => {
+      const h = new FhePaymentHandler(mockSigner, mockFhevm, {
+        memo: "0x" + "ab".repeat(32),
+      });
+      expect(h).toBeDefined();
+    });
   });
 
   describe("handlePaymentRequired", () => {

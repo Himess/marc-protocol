@@ -161,7 +161,7 @@ describe("FHE x402 — Sepolia On-Chain Integration", function () {
       const encrypted = await input.encrypt();
 
       const tx = await pool.pay(
-        bob.address, encrypted.handles[0], encrypted.inputProof, 5_000_000, nonce
+        bob.address, encrypted.handles[0], encrypted.inputProof, 5_000_000, nonce, ethers.ZeroHash
       );
       await tx.wait();
       console.log(`    pay TX: ${tx.hash}`);
@@ -182,7 +182,7 @@ describe("FHE x402 — Sepolia On-Chain Integration", function () {
       const encrypted = await input.encrypt();
 
       const tx = await pool.pay(
-        bob.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce
+        bob.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce, ethers.ZeroHash
       );
       const receipt = await tx.wait();
       console.log(`    pay TX: ${tx.hash}`);
@@ -198,7 +198,7 @@ describe("FHE x402 — Sepolia On-Chain Integration", function () {
       const enc1 = await input1.encrypt();
 
       const tx = await pool.pay(
-        bob.address, enc1.handles[0], enc1.inputProof, 1_000_000, nonce
+        bob.address, enc1.handles[0], enc1.inputProof, 1_000_000, nonce, ethers.ZeroHash
       );
       await tx.wait();
       console.log(`    first pay TX: ${tx.hash}`);
@@ -208,7 +208,7 @@ describe("FHE x402 — Sepolia On-Chain Integration", function () {
       const enc2 = await input2.encrypt();
 
       await expect(
-        pool.pay(bob.address, enc2.handles[0], enc2.inputProof, 1_000_000, nonce)
+        pool.pay(bob.address, enc2.handles[0], enc2.inputProof, 1_000_000, nonce, ethers.ZeroHash)
       ).to.be.revertedWithCustomError(pool, "NonceAlreadyUsed");
     });
 
@@ -224,7 +224,7 @@ describe("FHE x402 — Sepolia On-Chain Integration", function () {
       const encrypted = await input.encrypt();
 
       const tx = await pool.connect(bob).pay(
-        deployer.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce
+        deployer.address, encrypted.handles[0], encrypted.inputProof, 1_000_000, nonce, ethers.ZeroHash
       );
       await tx.wait();
       console.log(`    silent fail TX: ${tx.hash}`);
@@ -382,7 +382,7 @@ describe("FHE x402 — Sepolia On-Chain Integration", function () {
       const payEncrypted = await payInput.encrypt();
 
       const payTx = await pool.connect(bob).pay(
-        deployer.address, payEncrypted.handles[0], payEncrypted.inputProof, 3_000_000, nonce
+        deployer.address, payEncrypted.handles[0], payEncrypted.inputProof, 3_000_000, nonce, ethers.ZeroHash
       );
       const payReceipt = await payTx.wait();
       console.log(`    Pay TX: ${payTx.hash}`);

@@ -31,3 +31,14 @@ export type { FacilitatorConfig } from "./facilitator.js";
 // ERC-8004 integration
 export { fhePaymentMethod, fhePaymentProof } from "./erc8004/index.js";
 export type { FhePaymentMethod, PaymentProofForFeedback } from "./erc8004/index.js";
+
+// Error classes
+export {
+  FheX402Error,
+  PaymentError,
+  EncryptionError,
+  VerificationError,
+  TimeoutError,
+  NetworkError,
+  FheErrorCode,
+} from "./errors.js";

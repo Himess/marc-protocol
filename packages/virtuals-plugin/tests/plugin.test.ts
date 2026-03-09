@@ -9,6 +9,8 @@ const mockApprove = vi.fn();
 const mockDeposit = vi.fn();
 const mockPay = vi.fn();
 const mockRequestWithdraw = vi.fn();
+const mockFinalizeWithdraw = vi.fn();
+const mockCancelWithdraw = vi.fn();
 const mockIsInitialized = vi.fn().mockResolvedValue(true);
 const mockBalanceOf = vi.fn().mockResolvedValue(5_000_000n);
 const mockGetAddress = vi.fn().mockResolvedValue("0x1234567890abcdef1234567890abcdef12345678");
@@ -30,20 +32,25 @@ vi.mock("ethers", () => ({
       deposit: mockDeposit,
       pay: mockPay,
       requestWithdraw: mockRequestWithdraw,
+      finalizeWithdraw: mockFinalizeWithdraw,
+      cancelWithdraw: mockCancelWithdraw,
       isInitialized: mockIsInitialized,
     };
   }),
   ethers: {
     hexlify: vi.fn().mockReturnValue("0x" + "ab".repeat(32)),
     randomBytes: vi.fn().mockReturnValue(new Uint8Array(32)),
+    ZeroHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
   },
 }));
 
 vi.mock("fhe-x402-sdk", () => ({
   POOL_ABI: [
     "function deposit(uint64 amount) external",
-    "function pay(address to, externalEuint64 encryptedAmount, bytes calldata inputProof, uint64 minPrice, bytes32 nonce) external",
+    "function pay(address to, externalEuint64 encryptedAmount, bytes calldata inputProof, uint64 minPrice, bytes32 nonce, bytes32 memo) external",
     "function requestWithdraw(externalEuint64 encryptedAmount, bytes calldata inputProof) external",
+    "function cancelWithdraw() external",
+    "function finalizeWithdraw(uint64 clearAmount, bytes calldata decryptionProof) external",
     "function isInitialized(address account) external view returns (bool)",
   ],
 }));
@@ -271,7 +278,8 @@ describe("fhe_pay", () => {
       "0x" + "ff".repeat(32), // encrypted handle from fhevmjs
       "0x" + "ee".repeat(64), // input proof from fhevmjs
       1_000_000n,
-      expect.any(String)
+      expect.any(String),
+      "0x0000000000000000000000000000000000000000000000000000000000000000" // memo (ethers.ZeroHash)
     );
   });
 
@@ -476,14 +484,14 @@ describe("fhe_info", () => {
 // ---------------------------------------------------------------------------
 
 describe("getWorker", () => {
-  it("returns a GameWorker with all 5 functions", () => {
+  it("returns a GameWorker with all 7 functions", () => {
     const plugin = createPlugin();
     const worker = plugin.getWorker();
 
     expect(worker).toBeDefined();
     expect(worker.id).toBe("fhe_x402_worker");
     expect(worker.name).toBe("FHE x402 Payment Worker");
-    expect(worker.functions).toHaveLength(5);
+    expect(worker.functions).toHaveLength(7);
   });
 
   it("allows custom functions override", () => {

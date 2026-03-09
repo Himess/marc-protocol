@@ -17,9 +17,13 @@ const GATEWAY_URL = "https://gateway.sepolia.zama.ai";
 
 const POOL_ABI = [
   "function deposit(uint64 amount) external",
-  "function pay(address to, bytes32 encryptedAmount, bytes calldata inputProof, uint64 minPrice, bytes32 nonce) external",
+  "function pay(address to, bytes32 encryptedAmount, bytes calldata inputProof, uint64 minPrice, bytes32 nonce, bytes32 memo) external",
   "function requestWithdraw(bytes32 encryptedAmount, bytes calldata inputProof) external",
+  "function cancelWithdraw() external",
+  "function finalizeWithdraw(uint64 clearAmount, bytes calldata decryptionProof) external",
   "function isInitialized(address account) external view returns (bool)",
+  "function paused() external view returns (bool)",
+  "function withdrawRequestedAt(address account) external view returns (uint256)",
 ];
 
 const USDC_ABI = [
@@ -39,6 +43,7 @@ const styles: Record<string, React.CSSProperties> = {
     maxWidth: 600,
     margin: "0 auto",
     padding: "40px 20px",
+    minHeight: "100vh",
   },
   header: {
     textAlign: "center",
@@ -84,12 +89,17 @@ export default function App() {
   const [address, setAddress] = useState<string>("");
   const [status, setStatus] = useState<string>("");
   const [statusType, setStatusType] = useState<"info" | "error" | "success">("info");
+  const [txHistory, setTxHistory] = useState<Array<{action: string; txHash: string; amount?: string; timestamp: number}>>([]);
   const fhevmRef = useRef<FhevmInstance | null>(null);
   const fhevmInitPromise = useRef<Promise<FhevmInstance> | null>(null);
 
   const showStatus = (msg: string, type: "info" | "error" | "success" = "info") => {
     setStatus(msg);
     setStatusType(type);
+  };
+
+  const logTx = (action: string, txHash: string, amount?: string) => {
+    setTxHistory(prev => [{action, txHash, amount, timestamp: Date.now()}, ...prev].slice(0, 20));
   };
 
   const getFhevmInstance = async (): Promise<FhevmInstance> => {
@@ -151,6 +161,7 @@ export default function App() {
       const tx = await pool.deposit(raw);
       const receipt = await tx.wait();
       showStatus(`Deposited ${amount} USDC | TX: ${receipt.hash}`, "success");
+      logTx("Deposit", receipt.hash, amount);
     } catch (e: any) {
       showStatus(e.message || "Deposit failed", "error");
     }
@@ -176,10 +187,12 @@ export default function App() {
         encrypted.handles[0],
         encrypted.inputProof,
         raw,
-        nonce
+        nonce,
+        ethers.ZeroHash
       );
       const receipt = await tx.wait();
       showStatus(`Paid ${amount} USDC to ${to.slice(0, 8)}... | TX: ${receipt.hash}`, "success");
+      logTx("Pay", receipt.hash, amount);
     } catch (e: any) {
       showStatus(e.message || "Payment failed", "error");
     }
@@ -201,8 +214,22 @@ export default function App() {
       const tx = await pool.requestWithdraw(encrypted.handles[0], encrypted.inputProof);
       const receipt = await tx.wait();
       showStatus(`Withdrawal requested for ${amount} USDC | TX: ${receipt.hash}. Awaiting KMS finalization.`, "success");
+      logTx("Withdraw Request", receipt.hash, amount);
     } catch (e: any) {
       showStatus(e.message || "Withdrawal failed", "error");
+    }
+  };
+
+  const onCancelWithdraw = async () => {
+    try {
+      showStatus("Cancelling withdrawal...", "info");
+      const { pool } = getContracts();
+      const tx = await pool.cancelWithdraw();
+      const receipt = await tx.wait();
+      showStatus(`Withdrawal cancelled | TX: ${receipt.hash}`, "success");
+      logTx("Cancel Withdraw", receipt.hash);
+    } catch (e: any) {
+      showStatus(e.message || "Cancel failed", "error");
     }
   };
 
@@ -238,6 +265,54 @@ export default function App() {
           <div style={styles.section}>
             <WithdrawForm onWithdraw={onWithdraw} />
           </div>
+
+          <div style={styles.section}>
+            <h3 style={{color: '#fff', margin: '0 0 12px 0', fontSize: 16}}>Withdraw Actions</h3>
+            <button
+              onClick={onCancelWithdraw}
+              style={{
+                background: '#333',
+                color: '#ff6b6b',
+                border: '1px solid #ff6b6b',
+                borderRadius: 8,
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: 13,
+                width: '100%',
+              }}
+            >
+              Cancel Pending Withdrawal
+            </button>
+          </div>
+
+          {txHistory.length > 0 && (
+            <div style={styles.section}>
+              <h3 style={{color: '#fff', margin: '0 0 12px 0', fontSize: 16}}>Transaction History</h3>
+              {txHistory.map((tx, i) => (
+                <div key={i} style={{
+                  padding: '8px 0',
+                  borderBottom: i < txHistory.length - 1 ? '1px solid #222' : 'none',
+                  fontSize: 12,
+                  color: '#aaa',
+                }}>
+                  <span style={{color: '#7b68ee', fontWeight: 600}}>{tx.action}</span>
+                  {tx.amount && <span> — {tx.amount} USDC</span>}
+                  <br />
+                  <a
+                    href={`https://sepolia.etherscan.io/tx/${tx.txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{color: '#4a90d9', textDecoration: 'none', fontSize: 11}}
+                  >
+                    {tx.txHash.slice(0, 10)}...{tx.txHash.slice(-8)} ↗
+                  </a>
+                  <span style={{float: 'right', fontSize: 11}}>
+                    {new Date(tx.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
 

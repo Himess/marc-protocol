@@ -53,7 +53,8 @@ describe("FHE x402 — E2E Demo", function () {
       encrypted.handles[0],
       encrypted.inputProof,
       5_000_000,
-      nonce
+      nonce,
+      ethers.ZeroHash
     );
     const receipt = await tx.wait();
     console.log(`  TX hash: ${tx.hash}`);

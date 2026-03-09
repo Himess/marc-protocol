@@ -229,7 +229,8 @@ describe("pay script", () => {
       "0x" + "ff".repeat(32),
       "0x" + "ee".repeat(64),
       1_000_000n,
-      expect.any(String)
+      expect.any(String),
+      expect.any(String) // memo (ethers.ZeroHash)
     );
   });
 

@@ -78,7 +78,7 @@ describe("ConfidentialPaymentPool — Fee", function () {
     const input = fhevm.createEncryptedInput(poolAddress, alice.address);
     input.add64(20_000_000n);
     const encrypted = await input.encrypt();
-    await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 20_000_000, nonce);
+    await pool.connect(alice).pay(bob.address, encrypted.handles[0], encrypted.inputProof, 20_000_000, nonce, ethers.ZeroHash);
 
     const encTreasury = await pool.balanceOf(treasury.address);
     const treasuryBal = await fhevm.userDecryptEuint(FhevmType.euint64, encTreasury, poolAddress, treasury);
@@ -94,7 +94,7 @@ describe("ConfidentialPaymentPool — Fee", function () {
     const input = fhevm.createEncryptedInput(poolAddress, bob.address);
     input.add64(5_000_000n);
     const encrypted = await input.encrypt();
-    await pool.connect(bob).pay(alice.address, encrypted.handles[0], encrypted.inputProof, 5_000_000, nonce);
+    await pool.connect(bob).pay(alice.address, encrypted.handles[0], encrypted.inputProof, 5_000_000, nonce, ethers.ZeroHash);
 
     const encTreasury = await pool.balanceOf(treasury.address);
     const treasuryBal = await fhevm.userDecryptEuint(FhevmType.euint64, encTreasury, poolAddress, treasury);

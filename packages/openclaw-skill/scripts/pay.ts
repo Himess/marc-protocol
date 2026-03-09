@@ -38,7 +38,8 @@ export async function run(args: Record<string, string>): Promise<string> {
       encrypted.handles[0],
       encrypted.inputProof,
       rawAmount,
-      nonce
+      nonce,
+      ethers.ZeroHash
     );
     const receipt = await tx.wait();
 

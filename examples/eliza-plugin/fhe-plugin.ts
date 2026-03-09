@@ -7,7 +7,7 @@
 
 import { fheFetch, POOL_ABI } from "fhe-x402-sdk";
 import type { FhevmInstance } from "fhe-x402-sdk";
-import { JsonRpcProvider, Wallet, Contract } from "ethers";
+import { JsonRpcProvider, Wallet, Contract, ethers } from "ethers";
 import { initFhevm, createInstance } from "fhevmjs";
 
 // ElizaOS plugin interface (simplified)
@@ -123,6 +123,70 @@ export const fhePlugin: Plugin = {
           data: { txHash: receipt.hash, amount },
           message: `Deposited ${amount} USDC | TX: ${receipt.hash}`,
         };
+      },
+    },
+
+    {
+      name: "FHE_WITHDRAW_FINALIZE",
+      description: "Finalize a pending withdrawal (step 2 of 2). Requires the clear amount and decryption proof from the KMS gateway.",
+      handler: async (ctx: ActionContext): Promise<ActionResult> => {
+        const clearAmountStr = ctx.params.clearAmount;
+        const proof = ctx.params.proof || ctx.params.decryptionProof;
+
+        if (!clearAmountStr || !proof) {
+          return { success: false, message: "Both clearAmount and proof are required" };
+        }
+
+        const clearAmount = parseInt(clearAmountStr);
+        if (isNaN(clearAmount) || clearAmount < 0) {
+          return { success: false, message: "Invalid clearAmount. Must be a non-negative integer." };
+        }
+
+        try {
+          const tx = await pool.finalizeWithdraw(clearAmount, proof);
+          const receipt = await tx.wait();
+
+          const amountUSDC = (clearAmount / 1_000_000).toFixed(2);
+
+          return {
+            success: true,
+            data: {
+              action: "withdraw_finalized",
+              amount: amountUSDC,
+              clearAmount: clearAmountStr,
+              txHash: receipt.hash,
+              blockNumber: receipt.blockNumber,
+            },
+            message: `Withdrawal finalized: ${amountUSDC} USDC | TX: ${receipt.hash}`,
+          };
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return { success: false, message: `Finalize withdrawal failed: ${msg}` };
+        }
+      },
+    },
+
+    {
+      name: "FHE_CANCEL_WITHDRAW",
+      description: "Cancel a pending withdrawal request and refund the amount back to your encrypted pool balance.",
+      handler: async (): Promise<ActionResult> => {
+        try {
+          const tx = await pool.cancelWithdraw();
+          const receipt = await tx.wait();
+
+          return {
+            success: true,
+            data: {
+              action: "withdraw_cancelled",
+              txHash: receipt.hash,
+              blockNumber: receipt.blockNumber,
+            },
+            message: `Withdrawal cancelled | TX: ${receipt.hash}`,
+          };
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return { success: false, message: `Cancel withdrawal failed: ${msg}` };
+        }
       },
     },
   ],

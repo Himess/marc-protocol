@@ -153,6 +153,38 @@ describe("fheFetch", () => {
     const response = await fheFetch("https://api.example.com/data", createMockFetchOptions());
     expect(response.status).toBe(402);
   });
+
+  it("should pass through non-402 with timeout option", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response("OK", { status: 200 })
+    );
+
+    const options = { ...createMockFetchOptions(), timeoutMs: 5000 };
+    const response = await fheFetch("https://api.example.com/data", options);
+    expect(response.status).toBe(200);
+  });
+
+  it("should pass through non-402 with retry options", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response("OK", { status: 200 })
+    );
+
+    const options = { ...createMockFetchOptions(), maxRetries: 3, retryDelayMs: 100 };
+    const response = await fheFetch("https://api.example.com/data", options);
+    expect(response.status).toBe(200);
+    // Should only call fetch once for non-402
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("should pass memo option through", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response("OK", { status: 200 })
+    );
+
+    const options = { ...createMockFetchOptions(), memo: "0x" + "ab".repeat(32) };
+    const response = await fheFetch("https://api.example.com/data", options);
+    expect(response.status).toBe(200);
+  });
 });
 
 describe("createFheFetch", () => {

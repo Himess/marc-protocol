@@ -240,7 +240,8 @@ class FhePlugin {
             encrypted.handles[0],
             encrypted.inputProof,
             rawAmount,
-            nonce
+            nonce,
+            ethers.ZeroHash
           );
           const receipt = await tx.wait();
 
@@ -341,6 +342,116 @@ class FhePlugin {
           return new ExecutableGameFunctionResponse(
             ExecutableGameFunctionStatus.Failed,
             `Withdrawal request failed: ${msg}`
+          );
+        }
+      },
+    });
+  }
+
+  // ============================================================================
+  // GameFunction: fhe_finalize_withdraw
+  // ============================================================================
+
+  get finalizeWithdrawFunction() {
+    const self = this;
+    return new GameFunction({
+      name: "fhe_finalize_withdraw",
+      description:
+        "Finalize a pending withdrawal (step 2 of 2). Requires the clear amount and decryption proof from the KMS gateway. This completes the withdrawal and transfers USDC back to your wallet.",
+      args: [
+        {
+          name: "clearAmount",
+          description: "The decrypted withdrawal amount in raw USDC units (e.g. '1000000' for 1 USDC)",
+        },
+        {
+          name: "decryptionProof",
+          description: "The KMS decryption proof (hex bytes)",
+        },
+      ] as const,
+      executable: async (args, logger) => {
+        try {
+          const clearAmountStr = args.clearAmount;
+          const proofStr = args.decryptionProof;
+
+          if (!clearAmountStr || !proofStr) {
+            return new ExecutableGameFunctionResponse(
+              ExecutableGameFunctionStatus.Failed,
+              "Both 'clearAmount' and 'decryptionProof' are required"
+            );
+          }
+
+          const clearAmount = parseInt(clearAmountStr);
+          if (isNaN(clearAmount) || clearAmount < 0) {
+            return new ExecutableGameFunctionResponse(
+              ExecutableGameFunctionStatus.Failed,
+              "Invalid clearAmount. Must be a non-negative integer."
+            );
+          }
+
+          logger(`Finalizing withdrawal of ${clearAmount} raw units...`);
+
+          const { pool } = await self.getContracts();
+          const tx = await pool.finalizeWithdraw(clearAmount, proofStr);
+          const receipt = await tx.wait();
+
+          const amountUSDC = (clearAmount / 1_000_000).toFixed(2);
+          logger(`Withdrawal finalized: ${amountUSDC} USDC | TX: ${receipt.hash}`);
+
+          return new ExecutableGameFunctionResponse(
+            ExecutableGameFunctionStatus.Done,
+            JSON.stringify({
+              action: "withdraw_finalized",
+              amount: amountUSDC,
+              clearAmount: clearAmountStr,
+              txHash: receipt.hash,
+              blockNumber: receipt.blockNumber,
+            })
+          );
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return new ExecutableGameFunctionResponse(
+            ExecutableGameFunctionStatus.Failed,
+            `Finalize withdrawal failed: ${msg}`
+          );
+        }
+      },
+    });
+  }
+
+  // ============================================================================
+  // GameFunction: fhe_cancel_withdraw
+  // ============================================================================
+
+  get cancelWithdrawFunction() {
+    const self = this;
+    return new GameFunction({
+      name: "fhe_cancel_withdraw",
+      description:
+        "Cancel a pending withdrawal request and refund the amount back to your encrypted pool balance.",
+      args: [] as const,
+      executable: async (_args, logger) => {
+        try {
+          logger("Cancelling pending withdrawal...");
+
+          const { pool } = await self.getContracts();
+          const tx = await pool.cancelWithdraw();
+          const receipt = await tx.wait();
+
+          logger(`Withdrawal cancelled: TX ${receipt.hash}`);
+
+          return new ExecutableGameFunctionResponse(
+            ExecutableGameFunctionStatus.Done,
+            JSON.stringify({
+              action: "withdraw_cancelled",
+              txHash: receipt.hash,
+              blockNumber: receipt.blockNumber,
+            })
+          );
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return new ExecutableGameFunctionResponse(
+            ExecutableGameFunctionStatus.Failed,
+            `Cancel withdrawal failed: ${msg}`
           );
         }
       },
@@ -449,6 +560,8 @@ class FhePlugin {
         this.depositFunction,
         this.payFunction,
         this.withdrawFunction,
+        this.finalizeWithdrawFunction,
+        this.cancelWithdrawFunction,
         this.balanceFunction,
         this.infoFunction,
       ],

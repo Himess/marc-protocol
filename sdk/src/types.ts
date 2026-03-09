@@ -78,6 +78,14 @@ export interface FheFetchOptions extends RequestInit {
   maxPayment?: bigint;
   allowedNetworks?: string[];
   dryRun?: boolean;
+  /** Timeout in milliseconds for HTTP requests (default: 30000) */
+  timeoutMs?: number;
+  /** Number of retry attempts for failed HTTP retries after payment (default: 0) */
+  maxRetries?: number;
+  /** Base delay between retries in ms, with linear backoff (default: 1000) */
+  retryDelayMs?: number;
+  /** Optional memo to attach to payments (bytes32 hex). Defaults to 0x0. */
+  memo?: string;
 }
 
 /** Minimal fhevmjs interface (avoid hard dependency) */
@@ -116,18 +124,36 @@ export interface NonceStore {
 
 export const POOL_ABI = [
   "function deposit(uint64 amount) external",
-  "function pay(address to, bytes32 encryptedAmount, bytes calldata inputProof, uint64 minPrice, bytes32 nonce) external",
+  "function pay(address to, bytes32 encryptedAmount, bytes calldata inputProof, uint64 minPrice, bytes32 nonce, bytes32 memo) external",
   "function requestWithdraw(bytes32 encryptedAmount, bytes calldata inputProof) external",
   "function cancelWithdraw() external",
+  "function expireWithdraw(address user) external",
   "function finalizeWithdraw(uint64 clearAmount, bytes calldata decryptionProof) external",
   "function requestBalance() external",
+  "function treasuryWithdraw(uint64 amount) external",
+  "function pause() external",
+  "function unpause() external",
+  "function setPoolCaps(uint256 _maxPoolBalance, uint256 _maxUserDeposit) external",
+  "function setTreasury(address newTreasury) external",
+  "function transferOwnership(address newOwner) external",
+  "function acceptOwnership() external",
   "function balanceOf(address account) external view returns (bytes32)",
   "function balanceSnapshotOf(address account) external view returns (bytes32)",
   "function usedNonces(bytes32 nonce) external view returns (bool)",
   "function isInitialized(address account) external view returns (bool)",
+  "function pendingWithdrawOf(address account) external view returns (bytes32)",
+  "function withdrawRequestedAt(address account) external view returns (uint256)",
+  "function paused() external view returns (bool)",
   "event Deposited(address indexed user, uint64 amount)",
-  "event PaymentExecuted(address indexed from, address indexed to, uint64 minPrice, bytes32 nonce)",
-  "event WithdrawRequested(address indexed user)",
+  "event PaymentExecuted(address indexed from, address indexed to, uint64 minPrice, bytes32 nonce, bytes32 memo)",
+  "event WithdrawRequested(address indexed user, uint256 expiresAt)",
   "event WithdrawCancelled(address indexed user)",
+  "event WithdrawExpired(address indexed user)",
   "event WithdrawFinalized(address indexed user, uint64 amount)",
+  "event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury)",
+  "event TreasuryWithdrawn(address indexed treasury, uint64 amount)",
+  "event BalanceRequested(address indexed user)",
+  "event PoolCapUpdated(uint256 maxPoolBalance, uint256 maxUserDeposit)",
+  "event Paused(address account)",
+  "event Unpaused(address account)",
 ] as const;
