@@ -1,0 +1,78 @@
+type User @entity {
+  id: Bytes! # address
+  totalDeposited: BigInt!
+  totalWithdrawn: BigInt!
+  isInitialized: Boolean!
+  lastActivity: BigInt! # block timestamp
+  deposits: [Deposit!]! @derivedFrom(field: "user")
+  paymentsFrom: [Payment!]! @derivedFrom(field: "from")
+  paymentsTo: [Payment!]! @derivedFrom(field: "to")
+  withdrawals: [Withdrawal!]! @derivedFrom(field: "user")
+}
+
+type Payment @entity(immutable: true) {
+  id: Bytes! # txHash + logIndex
+  from: User!
+  to: User!
+  minPrice: BigInt!
+  nonce: Bytes!
+  memo: Bytes!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: Bytes!
+}
+
+type Deposit @entity(immutable: true) {
+  id: Bytes! # txHash + logIndex
+  user: User!
+  amount: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: Bytes!
+}
+
+type Withdrawal @entity(immutable: true) {
+  id: Bytes! # txHash + logIndex
+  user: User!
+  amount: BigInt!
+  type: String! # "requested" | "cancelled" | "expired" | "finalized"
+  expiresAt: BigInt
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: Bytes!
+}
+
+type PoolStats @entity {
+  id: Bytes! # singleton "pool-stats"
+  totalDeposits: BigInt!
+  totalPayments: BigInt!
+  totalWithdrawals: BigInt!
+  totalFees: BigInt!
+  isPaused: Boolean!
+  currentOwner: Bytes!
+  pendingOwner: Bytes
+  treasury: Bytes!
+  maxPoolBalance: BigInt!
+  maxUserDeposit: BigInt!
+}
+
+type CapUpdate @entity(immutable: true) {
+  id: Bytes! # txHash + logIndex
+  maxPoolBalance: BigInt!
+  maxUserDeposit: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: Bytes!
+}
+
+type TreasuryAction @entity(immutable: true) {
+  id: Bytes! # txHash + logIndex
+  type: String! # "updated" | "withdrawn"
+  oldTreasury: Bytes
+  newTreasury: Bytes
+  treasury: Bytes
+  amount: BigInt
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: Bytes!
+}

@@ -13,6 +13,7 @@ const POOL_ABI = [
   "function isInitialized(address) view returns (bool)",
   "function paused() view returns (bool)",
   "function withdrawRequestedAt(address) view returns (uint256)",
+  "function requestBalance() external",
 ];
 
 const styles: Record<string, React.CSSProperties> = {
@@ -29,13 +30,27 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     marginTop: 8,
   },
+  decryptBtn: {
+    background: "#1a1a2e",
+    border: "1px solid #7b68ee",
+    color: "#7b68ee",
+    borderRadius: 6,
+    padding: "6px 16px",
+    cursor: "pointer",
+    fontSize: 12,
+    marginTop: 4,
+    width: "100%",
+  },
 };
+
+type DecryptStatus = "idle" | "requesting" | "pending";
 
 export default function BalanceDisplay({ address, signer, usdcAddress, poolAddress }: Props) {
   const [usdcBalance, setUsdcBalance] = useState<string>("...");
   const [isInit, setIsInit] = useState<boolean | null>(null);
   const [isPaused, setIsPaused] = useState<boolean | null>(null);
   const [withdrawPending, setWithdrawPending] = useState<string | null>(null);
+  const [decryptStatus, setDecryptStatus] = useState<DecryptStatus>("idle");
 
   const refresh = async () => {
     try {
@@ -59,6 +74,18 @@ export default function BalanceDisplay({ address, signer, usdcAddress, poolAddre
     }
   };
 
+  const requestDecryption = async () => {
+    try {
+      setDecryptStatus("requesting");
+      const pool = new Contract(poolAddress, POOL_ABI, signer);
+      const tx = await pool.requestBalance();
+      await tx.wait();
+      setDecryptStatus("pending");
+    } catch {
+      setDecryptStatus("idle");
+    }
+  };
+
   useEffect(() => { refresh(); }, [address]);
 
   return (
@@ -74,8 +101,23 @@ export default function BalanceDisplay({ address, signer, usdcAddress, poolAddre
       </div>
       <div style={styles.row}>
         <span>Encrypted Balance</span>
-        <span style={{ color: "#666", fontSize: 12 }}>Requires KMS decryption</span>
+        {decryptStatus === "idle" && (
+          <span style={{ color: "#666", fontSize: 12 }}>Requires KMS decryption</span>
+        )}
+        {decryptStatus === "requesting" && (
+          <span style={{ color: "#ffb347", fontSize: 12 }}>Requesting snapshot...</span>
+        )}
+        {decryptStatus === "pending" && (
+          <span style={{ color: "#7b68ee", fontSize: 11 }}>
+            Pending — use hardhat task or gateway to view
+          </span>
+        )}
       </div>
+      {isInit && decryptStatus === "idle" && (
+        <button style={styles.decryptBtn} onClick={requestDecryption}>
+          Request Balance Decryption
+        </button>
+      )}
       <div style={styles.row}>
         <span>Contract Paused</span>
         <span style={{

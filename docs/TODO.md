@@ -51,28 +51,33 @@
 - [x] Infrastructure: CI lint + security jobs, root package.json scripts
 - [x] 245+ total tests (132 contract + 85 SDK + 28+ Virtuals + 25+ OpenClaw)
 
+## Completed (V1.3)
+
+- [x] Redis NonceStore example (examples/redis-nonce-store.ts)
+- [x] UUPS proxy upgrade pattern (ConfidentialPaymentPoolUpgradeable + proxy deploy + 9 proxy tests)
+- [x] PoolMigrationHelper contract (approve + deposit in one TX)
+- [x] Decryption gateway: hardhat task (decrypt-balance), balance gateway server (balanceGateway.ts)
+- [x] Frontend: "Request Balance Decryption" button in BalanceDisplay
+- [x] Subgraph: schema (7 entities), manifest, mapping (14 event handlers), events-only ABI
+
 ## In Progress
 
 - [ ] Demo video recording (5-minute walkthrough)
 
-## Planned (V1.3)
+## Planned (V1.4)
 
 - [ ] Professional security audit (Trail of Bits / OpenZeppelin / Quantstamp)
 - [ ] Bug bounty program (Immunefi / Code4rena)
 - [ ] Ethereum mainnet deployment
 - [ ] Batch operations (batchPay, batchDeposit)
-- [ ] Redis NonceStore example implementation
-- [ ] UUPS proxy upgrade pattern
 
 ## Planned (V2.0)
 
 - [ ] L2 deployment (Base, Arbitrum) for lower gas
 - [ ] Multi-token support (WETH, DAI)
-- [ ] Decryption gateway for browser balance checking
 - [ ] Subscription payment model (recurring encrypted payments)
 - [ ] Allowance / delegate spending pattern (approve + payFrom)
 - [ ] Decentralized KMS (multi-party threshold FHE)
-- [ ] Subgraph deployment (index all events for analytics)
 
 ## Planned (V2.1)
 

@@ -1,0 +1,58 @@
+specVersion: 1.0.0
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: ConfidentialPaymentPool
+    network: sepolia
+    source:
+      address: "0xfF87ec6cb07D8Aa26ABc81037e353A28c7752d73"
+      abi: ConfidentialPaymentPool
+      startBlock: 10408238
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - User
+        - Payment
+        - Deposit
+        - Withdrawal
+        - PoolStats
+        - CapUpdate
+        - TreasuryAction
+      abis:
+        - name: ConfidentialPaymentPool
+          file: ./abis/ConfidentialPaymentPool.json
+      eventHandlers:
+        - event: Deposited(indexed address,uint64)
+          handler: handleDeposited
+        - event: PaymentExecuted(indexed address,indexed address,uint64,bytes32,bytes32)
+          handler: handlePaymentExecuted
+        - event: WithdrawRequested(indexed address,uint256)
+          handler: handleWithdrawRequested
+        - event: WithdrawCancelled(indexed address)
+          handler: handleWithdrawCancelled
+        - event: WithdrawExpired(indexed address)
+          handler: handleWithdrawExpired
+        - event: WithdrawFinalized(indexed address,uint64)
+          handler: handleWithdrawFinalized
+        - event: TreasuryUpdated(indexed address,indexed address)
+          handler: handleTreasuryUpdated
+        - event: TreasuryWithdrawn(indexed address,uint64)
+          handler: handleTreasuryWithdrawn
+        - event: OwnershipTransferStarted(indexed address,indexed address)
+          handler: handleOwnershipTransferStarted
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleOwnershipTransferred
+        - event: BalanceRequested(indexed address)
+          handler: handleBalanceRequested
+        - event: PoolCapUpdated(uint256,uint256)
+          handler: handlePoolCapUpdated
+        - event: Paused(address)
+          handler: handlePaused
+        - event: Unpaused(address)
+          handler: handleUnpaused
+      file: ./src/mapping.ts

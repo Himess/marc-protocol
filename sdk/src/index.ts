@@ -32,6 +32,10 @@ export type { FacilitatorConfig } from "./facilitator.js";
 export { fhePaymentMethod, fhePaymentProof } from "./erc8004/index.js";
 export type { FhePaymentMethod, PaymentProofForFeedback } from "./erc8004/index.js";
 
+// Balance gateway server
+export { createBalanceGateway } from "./balanceGateway.js";
+export type { BalanceGatewayConfig } from "./balanceGateway.js";
+
 // Error classes
 export {
   FheX402Error,

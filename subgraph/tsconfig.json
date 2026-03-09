@@ -1,0 +1,7 @@
+{
+  "extends": "@graphprotocol/graph-ts/tsconfig",
+  "compilerOptions": {
+    "outDir": "build"
+  },
+  "include": ["src/**/*.ts"]
+}
