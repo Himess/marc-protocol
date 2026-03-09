@@ -13,7 +13,7 @@
     "dotenv": "^17.3.1"
   },
   "devDependencies": {
-    "@fhevm/hardhat-plugin": "0.4.0",
+    "@fhevm/hardhat-plugin": "0.4.2",
     "@fhevm/mock-utils": "0.4.0",
     "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
     "@nomicfoundation/hardhat-ethers": "^3.1.3",
