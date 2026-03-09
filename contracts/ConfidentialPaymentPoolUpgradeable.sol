@@ -10,8 +10,8 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./interfaces/IConfidentialPaymentPool.sol";
 
-/// @title ConfidentialPaymentPoolUpgradeable — UUPS-upgradeable FHE x402 Payment Pool
-/// @notice Same logic as ConfidentialPaymentPool V1.2, but uses UUPS proxy pattern.
+/// @title ConfidentialPaymentPoolUpgradeable — UUPS-upgradeable FHE x402 Payment Pool (V2.0)
+/// @notice Same logic as ConfidentialPaymentPool V2.0, but uses UUPS proxy pattern.
 ///         Does NOT inherit ZamaEthereumConfig — calls FHE.setCoprocessor() in initialize().
 contract ConfidentialPaymentPoolUpgradeable is
     Initializable,
@@ -54,8 +54,34 @@ contract ConfidentialPaymentPoolUpgradeable is
     mapping(address => bool) public balanceQueryRequested;
     mapping(address => uint256) public totalDeposited;
 
-    /// @dev Reserved storage gap for future upgrades
-    uint256[50] private __gap;
+    // V2.0 STATE
+    mapping(address => euint8) private _lastPayError;
+    mapping(address => euint32) private _paymentCount;
+    mapping(address => bool) private _paymentCountInitialized;
+
+    struct ConfidentialPayment {
+        eaddress recipient;
+        euint64 amount;
+        address sender;
+        uint64 minPrice;
+        bytes32 nonce;
+        bool claimed;
+    }
+
+    ConfidentialPayment[] private _confidentialPayments;
+
+    // V2.1 STATE
+    mapping(address => euint64) private _spendingLimit;
+    mapping(address => bool) private _spendingLimitInitialized;
+    mapping(address => euint64) private _dailySpent;
+    mapping(address => bool) private _dailySpentInitialized;
+    mapping(address => uint256) private _lastSpendReset;
+    mapping(address => ebool) private _lastPayExactlyOneError;
+
+    uint256 public constant SPENDING_PERIOD = 1 days;
+
+    /// @dev Reserved storage gap for future upgrades (reduced from 46 to 40)
+    uint256[40] private __gap;
 
     // ═══════════════════════════════════════
     // INITIALIZER (replaces constructor)
@@ -172,11 +198,44 @@ contract ConfidentialPaymentPoolUpgradeable is
             hasFunds = FHE.asEbool(false);
         }
 
-        ebool canPay = FHE.and(meetsPrice, hasFunds);
+        // V2.1: FHE.not — inverted condition flags for diagnostics
+        ebool insuffFlag = FHE.not(hasFunds);
+        ebool belowMinFlag = FHE.not(meetsPrice);
+
+        // V2.1: FHE.xor — exactly one error diagnostic
+        _lastPayExactlyOneError[msg.sender] = FHE.xor(insuffFlag, belowMinFlag);
+        FHE.allowThis(_lastPayExactlyOneError[msg.sender]);
+        FHE.allow(_lastPayExactlyOneError[msg.sender], msg.sender);
+
+        // V2.1: Spending limit check (FHE.gt, FHE.not)
+        ebool withinLimit = FHE.asEbool(true);
+        if (_spendingLimitInitialized[msg.sender]) {
+            if (block.timestamp >= _lastSpendReset[msg.sender] + SPENDING_PERIOD) {
+                _dailySpent[msg.sender] = FHE.asEuint64(0);
+                _dailySpentInitialized[msg.sender] = true;
+                _lastSpendReset[msg.sender] = block.timestamp;
+            }
+            euint64 newDaily = _dailySpentInitialized[msg.sender]
+                ? FHE.add(_dailySpent[msg.sender], amount)
+                : amount;
+            ebool overLimit = FHE.gt(newDaily, _spendingLimit[msg.sender]);
+            withinLimit = FHE.not(overLimit);
+        }
+
+        // Encrypted error recording with spending limit
+        euint8 errInsufficient = FHE.select(hasFunds, FHE.asEuint8(0), FHE.asEuint8(1));
+        euint8 errBelowMin = FHE.select(meetsPrice, FHE.asEuint8(0), FHE.asEuint8(2));
+        euint8 errOverLimit = FHE.select(withinLimit, FHE.asEuint8(0), FHE.asEuint8(4));
+        _lastPayError[msg.sender] = FHE.or(FHE.or(errInsufficient, errBelowMin), errOverLimit);
+        FHE.allowThis(_lastPayError[msg.sender]);
+        FHE.allow(_lastPayError[msg.sender], msg.sender);
+        emit PayErrorRecorded(msg.sender);
+
+        ebool canPay = FHE.and(FHE.and(meetsPrice, hasFunds), withinLimit);
         euint64 transferAmount = FHE.select(canPay, amount, FHE.asEuint64(0));
 
-        uint64 fee = _calculateFee(minPrice);
-        euint64 encFee = FHE.select(canPay, FHE.asEuint64(fee), FHE.asEuint64(0));
+        // V2.0: Encrypted fee calculation
+        euint64 encFee = _calculateEncryptedFee(transferAmount, canPay);
         euint64 netTransfer = FHE.sub(transferAmount, encFee);
 
         if (_balanceInitialized[msg.sender]) {
@@ -203,6 +262,30 @@ contract ConfidentialPaymentPoolUpgradeable is
         FHE.allowThis(_balances[treasury]);
         FHE.allow(_balances[treasury], treasury);
 
+        // V2.0: Payment counter
+        euint32 increment = FHE.select(canPay, FHE.asEuint32(1), FHE.asEuint32(0));
+        if (!_paymentCountInitialized[msg.sender]) {
+            _paymentCount[msg.sender] = increment;
+            _paymentCountInitialized[msg.sender] = true;
+        } else {
+            _paymentCount[msg.sender] = FHE.add(_paymentCount[msg.sender], increment);
+        }
+        FHE.allowThis(_paymentCount[msg.sender]);
+        FHE.allow(_paymentCount[msg.sender], msg.sender);
+
+        // V2.1: Update daily spent counter
+        if (_spendingLimitInitialized[msg.sender]) {
+            if (!_dailySpentInitialized[msg.sender]) {
+                _dailySpent[msg.sender] = transferAmount;
+                _dailySpentInitialized[msg.sender] = true;
+                _lastSpendReset[msg.sender] = block.timestamp;
+            } else {
+                _dailySpent[msg.sender] = FHE.add(_dailySpent[msg.sender], transferAmount);
+            }
+            FHE.allowThis(_dailySpent[msg.sender]);
+            FHE.allow(_dailySpent[msg.sender], msg.sender);
+        }
+
         emit PaymentExecuted(msg.sender, to, minPrice, nonce, memo);
     }
 
@@ -218,13 +301,10 @@ contract ConfidentialPaymentPoolUpgradeable is
 
         euint64 amount = FHE.fromExternal(encryptedAmount, inputProof);
 
-        ebool hasFunds;
-        if (_balanceInitialized[msg.sender]) {
-            hasFunds = FHE.le(amount, _balances[msg.sender]);
-        } else {
-            hasFunds = FHE.asEbool(false);
-        }
-        euint64 withdrawAmount = FHE.select(hasFunds, amount, FHE.asEuint64(0));
+        // V2.0: FHE.min — caps withdraw to balance
+        euint64 withdrawAmount = _balanceInitialized[msg.sender]
+            ? FHE.min(amount, _balances[msg.sender])
+            : FHE.asEuint64(0);
 
         if (_balanceInitialized[msg.sender]) {
             _balances[msg.sender] = FHE.sub(_balances[msg.sender], withdrawAmount);
@@ -343,8 +423,202 @@ contract ConfidentialPaymentPoolUpgradeable is
         return _pendingWithdraw[account];
     }
 
+    function lastPayError(address account) external view returns (euint8) {
+        return _lastPayError[account];
+    }
+
+    function paymentCountOf(address account) external view returns (euint32) {
+        return _paymentCount[account];
+    }
+
+    function confidentialPaymentCount() external view returns (uint256) {
+        return _confidentialPayments.length;
+    }
+
+    function spendingLimitOf(address account) external view returns (euint64) {
+        return _spendingLimit[account];
+    }
+
+    function dailySpentOf(address account) external view returns (euint64) {
+        return _dailySpent[account];
+    }
+
+    function lastPayExactlyOneError(address account) external view returns (ebool) {
+        return _lastPayExactlyOneError[account];
+    }
+
     function confidentialProtocolId() public view returns (uint256) {
         return ZamaConfig.getConfidentialProtocolId();
+    }
+
+    // ═══════════════════════════════════════
+    // SPENDING LIMIT (V2.1)
+    // ═══════════════════════════════════════
+
+    function setSpendingLimit(
+        externalEuint64 encryptedLimit,
+        bytes calldata inputProof
+    ) external nonReentrant whenNotPaused {
+        euint64 limit = FHE.fromExternal(encryptedLimit, inputProof);
+        _spendingLimit[msg.sender] = limit;
+        _spendingLimitInitialized[msg.sender] = true;
+        FHE.allowThis(_spendingLimit[msg.sender]);
+        FHE.allow(_spendingLimit[msg.sender], msg.sender);
+
+        if (!_dailySpentInitialized[msg.sender]) {
+            _dailySpent[msg.sender] = FHE.asEuint64(0);
+            _dailySpentInitialized[msg.sender] = true;
+            _lastSpendReset[msg.sender] = block.timestamp;
+        }
+        FHE.allowThis(_dailySpent[msg.sender]);
+        FHE.allow(_dailySpent[msg.sender], msg.sender);
+
+        emit SpendingLimitUpdated(msg.sender);
+    }
+
+    function removeSpendingLimit() external {
+        _spendingLimitInitialized[msg.sender] = false;
+        emit SpendingLimitRemoved(msg.sender);
+    }
+
+    // ═══════════════════════════════════════
+    // CONFIDENTIAL PAYMENT ROUTING (V2.0)
+    // ═══════════════════════════════════════
+
+    function payConfidential(
+        externalEaddress encryptedRecipient,
+        bytes calldata recipientProof,
+        externalEuint64 encryptedAmount,
+        bytes calldata amountProof,
+        uint64 minPrice,
+        bytes32 nonce,
+        bytes32 memo
+    ) external nonReentrant whenNotPaused {
+        if (minPrice < MIN_PROTOCOL_FEE) revert MinPriceTooLow();
+        if (usedNonces[nonce]) revert NonceAlreadyUsed();
+        usedNonces[nonce] = true;
+
+        eaddress recipient = FHE.fromExternal(encryptedRecipient, recipientProof);
+        euint64 amount = FHE.fromExternal(encryptedAmount, amountProof);
+
+        ebool meetsPrice = FHE.ge(amount, FHE.asEuint64(minPrice));
+
+        ebool hasFunds;
+        if (_balanceInitialized[msg.sender]) {
+            hasFunds = FHE.le(amount, _balances[msg.sender]);
+        } else {
+            hasFunds = FHE.asEbool(false);
+        }
+
+        // V2.1: Spending limit check
+        ebool withinLimit = FHE.asEbool(true);
+        if (_spendingLimitInitialized[msg.sender]) {
+            if (block.timestamp >= _lastSpendReset[msg.sender] + SPENDING_PERIOD) {
+                _dailySpent[msg.sender] = FHE.asEuint64(0);
+                _dailySpentInitialized[msg.sender] = true;
+                _lastSpendReset[msg.sender] = block.timestamp;
+            }
+            euint64 newDaily = _dailySpentInitialized[msg.sender]
+                ? FHE.add(_dailySpent[msg.sender], amount)
+                : amount;
+            ebool overLimit = FHE.gt(newDaily, _spendingLimit[msg.sender]);
+            withinLimit = FHE.not(overLimit);
+        }
+
+        ebool canPay = FHE.and(FHE.and(meetsPrice, hasFunds), withinLimit);
+        euint64 transferAmount = FHE.select(canPay, amount, FHE.asEuint64(0));
+        eaddress effectiveRecipient = FHE.select(canPay, recipient, FHE.asEaddress(address(0)));
+
+        euint64 encFee = _calculateEncryptedFee(transferAmount, canPay);
+
+        if (_balanceInitialized[msg.sender]) {
+            _balances[msg.sender] = FHE.sub(_balances[msg.sender], transferAmount);
+            FHE.allowThis(_balances[msg.sender]);
+            FHE.allow(_balances[msg.sender], msg.sender);
+        }
+
+        if (!_balanceInitialized[treasury]) {
+            _balances[treasury] = encFee;
+            _balanceInitialized[treasury] = true;
+        } else {
+            _balances[treasury] = FHE.add(_balances[treasury], encFee);
+        }
+        FHE.allowThis(_balances[treasury]);
+        FHE.allow(_balances[treasury], treasury);
+
+        euint64 randomSalt = FHE.randEuint64();
+        FHE.allowThis(randomSalt);
+
+        euint64 netAmount = FHE.sub(transferAmount, encFee);
+        uint256 paymentId = _confidentialPayments.length;
+        _confidentialPayments.push(ConfidentialPayment({
+            recipient: effectiveRecipient,
+            amount: netAmount,
+            sender: msg.sender,
+            minPrice: minPrice,
+            nonce: nonce,
+            claimed: false
+        }));
+
+        FHE.allowThis(_confidentialPayments[paymentId].recipient);
+        FHE.allowThis(_confidentialPayments[paymentId].amount);
+
+        euint32 increment = FHE.select(canPay, FHE.asEuint32(1), FHE.asEuint32(0));
+        if (!_paymentCountInitialized[msg.sender]) {
+            _paymentCount[msg.sender] = increment;
+            _paymentCountInitialized[msg.sender] = true;
+        } else {
+            _paymentCount[msg.sender] = FHE.add(_paymentCount[msg.sender], increment);
+        }
+        FHE.allowThis(_paymentCount[msg.sender]);
+        FHE.allow(_paymentCount[msg.sender], msg.sender);
+
+        // V2.1: Update daily spent counter
+        if (_spendingLimitInitialized[msg.sender]) {
+            if (!_dailySpentInitialized[msg.sender]) {
+                _dailySpent[msg.sender] = transferAmount;
+                _dailySpentInitialized[msg.sender] = true;
+                _lastSpendReset[msg.sender] = block.timestamp;
+            } else {
+                _dailySpent[msg.sender] = FHE.add(_dailySpent[msg.sender], transferAmount);
+            }
+            FHE.allowThis(_dailySpent[msg.sender]);
+            FHE.allow(_dailySpent[msg.sender], msg.sender);
+        }
+
+        emit ConfidentialPaymentCreated(paymentId, msg.sender, minPrice, nonce, memo);
+    }
+
+    function claimPayment(
+        uint256 paymentId,
+        externalEaddress encryptedClaimer,
+        bytes calldata claimerProof
+    ) external nonReentrant whenNotPaused {
+        if (paymentId >= _confidentialPayments.length) revert PaymentNotFound();
+        if (_confidentialPayments[paymentId].claimed) revert PaymentAlreadyClaimed();
+
+        eaddress claimerAddr = FHE.fromExternal(encryptedClaimer, claimerProof);
+
+        eaddress storedRecipient = _confidentialPayments[paymentId].recipient;
+        ebool isMatch = FHE.eq(storedRecipient, claimerAddr);
+        ebool notZero = FHE.ne(storedRecipient, FHE.asEaddress(address(0)));
+        ebool validClaim = FHE.and(isMatch, notZero);
+
+        euint64 storedAmount = _confidentialPayments[paymentId].amount;
+        euint64 creditAmount = FHE.select(validClaim, storedAmount, FHE.asEuint64(0));
+
+        if (!_balanceInitialized[msg.sender]) {
+            _balances[msg.sender] = creditAmount;
+            _balanceInitialized[msg.sender] = true;
+        } else {
+            _balances[msg.sender] = FHE.add(_balances[msg.sender], creditAmount);
+        }
+        FHE.allowThis(_balances[msg.sender]);
+        FHE.allow(_balances[msg.sender], msg.sender);
+
+        _confidentialPayments[paymentId].claimed = true;
+
+        emit ConfidentialPaymentClaimed(paymentId, msg.sender);
     }
 
     // ═══════════════════════════════════════
@@ -438,6 +712,19 @@ contract ConfidentialPaymentPoolUpgradeable is
     function _calculateFee(uint64 amount) internal pure returns (uint64) {
         uint64 percentageFee = (amount * FEE_BPS) / BPS;
         return percentageFee > MIN_PROTOCOL_FEE ? percentageFee : MIN_PROTOCOL_FEE;
+    }
+
+    function _calculateEncryptedFee(euint64 transferAmount, ebool shouldCharge) internal returns (euint64) {
+        euint64 product = FHE.mul(transferAmount, FHE.asEuint64(FEE_BPS));
+        euint64 percentageFee = FHE.div(product, BPS);
+        // V2.1: FHE.rem — round up if remainder > 0
+        euint64 remainder = FHE.rem(product, BPS);
+        ebool hasRemainder = FHE.gt(remainder, FHE.asEuint64(0));
+        euint64 roundUp = FHE.select(hasRemainder, FHE.asEuint64(1), FHE.asEuint64(0));
+        percentageFee = FHE.add(percentageFee, roundUp);
+        euint64 encFee = FHE.max(percentageFee, FHE.asEuint64(MIN_PROTOCOL_FEE));
+        encFee = FHE.select(shouldCharge, encFee, FHE.asEuint64(0));
+        return encFee;
     }
 
     function _creditTreasury(uint64 fee) internal {

@@ -4,6 +4,8 @@ import type {
   FhePaymentPayload,
   FhePaymentRequired,
   FhevmInstance,
+  ConfidentialPayResult,
+  ClaimPaymentResult,
 } from "./types.js";
 import { FHE_SCHEME } from "./types.js";
 import { PaymentError, EncryptionError } from "./errors.js";
@@ -155,6 +157,126 @@ export class FhePaymentHandler {
       txHash: tx.hash,
       nonce,
     };
+  }
+
+  async createConfidentialPayment(
+    requirements: FhePaymentRequirements,
+    recipientAddress: string
+  ): Promise<ConfidentialPayResult> {
+    const signerAddress = await this.signer.getAddress();
+    const amount = BigInt(requirements.price);
+    const nonce = ethers.hexlify(ethers.randomBytes(32));
+
+    let addrEncrypted: { handles: string[]; inputProof: string };
+    let amtEncrypted: { handles: string[]; inputProof: string };
+
+    try {
+      const addrInput = this.fhevmInstance.createEncryptedInput(
+        requirements.poolAddress,
+        signerAddress
+      );
+      addrInput.addAddress(recipientAddress);
+      addrEncrypted = await addrInput.encrypt();
+
+      const amtInput = this.fhevmInstance.createEncryptedInput(
+        requirements.poolAddress,
+        signerAddress
+      );
+      amtInput.add64(amount);
+      amtEncrypted = await amtInput.encrypt();
+    } catch (err) {
+      throw new EncryptionError(
+        `FHE encryption failed: ${err instanceof Error ? err.message : String(err)}`,
+        { amount: amount.toString(), poolAddress: requirements.poolAddress }
+      );
+    }
+
+    const poolABI = [
+      "function payConfidential(bytes32 encryptedRecipient, bytes recipientProof, bytes32 encryptedAmount, bytes amountProof, uint64 minPrice, bytes32 nonce, bytes32 memo) external",
+    ];
+    const pool = new Contract(requirements.poolAddress, poolABI, this.signer);
+    const memo = this.options.memo || ethers.ZeroHash;
+
+    const tx = await pool.payConfidential(
+      addrEncrypted.handles[0],
+      addrEncrypted.inputProof,
+      amtEncrypted.handles[0],
+      amtEncrypted.inputProof,
+      amount,
+      nonce,
+      memo
+    );
+    const receipt = await tx.wait();
+
+    if (!receipt || receipt.status === 0) {
+      throw new PaymentError("Confidential payment transaction failed", {
+        txHash: tx.hash,
+        to: recipientAddress,
+        amount: amount.toString(),
+      });
+    }
+
+    // Parse paymentId from ConfidentialPaymentCreated event
+    const poolIface = new ethers.Interface([
+      "event ConfidentialPaymentCreated(uint256 indexed paymentId, address indexed sender, uint64 minPrice, bytes32 nonce, bytes32 memo)",
+    ]);
+    let paymentId = 0n;
+    for (const log of receipt.logs) {
+      try {
+        const parsed = poolIface.parseLog({ topics: log.topics, data: log.data });
+        if (parsed?.name === "ConfidentialPaymentCreated") {
+          paymentId = parsed.args[0];
+          break;
+        }
+      } catch {
+        // not our event
+      }
+    }
+
+    return { txHash: tx.hash, paymentId, nonce };
+  }
+
+  async claimPayment(
+    poolAddress: string,
+    paymentId: bigint | number
+  ): Promise<ClaimPaymentResult> {
+    const signerAddress = await this.signer.getAddress();
+
+    let encrypted: { handles: string[]; inputProof: string };
+    try {
+      const input = this.fhevmInstance.createEncryptedInput(
+        poolAddress,
+        signerAddress
+      );
+      input.addAddress(signerAddress);
+      encrypted = await input.encrypt();
+    } catch (err) {
+      throw new EncryptionError(
+        `FHE encryption failed: ${err instanceof Error ? err.message : String(err)}`,
+        { poolAddress }
+      );
+    }
+
+    const poolABI = [
+      "function claimPayment(uint256 paymentId, bytes32 encryptedClaimer, bytes claimerProof) external",
+    ];
+    const pool = new Contract(poolAddress, poolABI, this.signer);
+
+    const tx = await pool.claimPayment(
+      paymentId,
+      encrypted.handles[0],
+      encrypted.inputProof
+    );
+    const receipt = await tx.wait();
+
+    if (!receipt || receipt.status === 0) {
+      throw new PaymentError("Claim payment transaction failed", {
+        txHash: tx.hash,
+        paymentId: String(paymentId),
+      });
+    }
+
+    return { txHash: tx.hash, paymentId: BigInt(paymentId) };
   }
 
   async handlePaymentRequired(

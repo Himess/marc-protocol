@@ -167,4 +167,54 @@ describe("ConfidentialPaymentPoolUpgradeable — Proxy", function () {
     expect(await pool.paused()).to.equal(false);
     await pool.connect(alice).deposit(1_000_000); // should work
   });
+
+  // ═══════════════════════════════════════
+  // V2.0 Proxy Tests
+  // ═══════════════════════════════════════
+
+  it("should record encrypted pay error through proxy (V2.0)", async function () {
+    const bob = (await ethers.getSigners())[3];
+    await pool.connect(alice).deposit(10_000_000);
+
+    const nonce = ethers.hexlify(ethers.randomBytes(32));
+    const input = fhevm.createEncryptedInput(proxyAddress, alice.address);
+    input.add64(1_000_000n);
+    const encrypted = await input.encrypt();
+
+    await pool.connect(alice).pay(
+      bob.address,
+      encrypted.handles[0],
+      encrypted.inputProof,
+      1_000_000,
+      nonce,
+      ethers.ZeroHash
+    );
+
+    const errHandle = await pool.lastPayError(alice.address);
+    const errVal = await fhevm.userDecryptEuint(FhevmType.euint8, errHandle, proxyAddress, alice);
+    expect(errVal).to.equal(0n); // successful pay
+  });
+
+  it("should track payment count through proxy (V2.0)", async function () {
+    const bob = (await ethers.getSigners())[3];
+    await pool.connect(alice).deposit(10_000_000);
+
+    const nonce = ethers.hexlify(ethers.randomBytes(32));
+    const input = fhevm.createEncryptedInput(proxyAddress, alice.address);
+    input.add64(1_000_000n);
+    const encrypted = await input.encrypt();
+
+    await pool.connect(alice).pay(
+      bob.address,
+      encrypted.handles[0],
+      encrypted.inputProof,
+      1_000_000,
+      nonce,
+      ethers.ZeroHash
+    );
+
+    const countHandle = await pool.paymentCountOf(alice.address);
+    const count = await fhevm.userDecryptEuint(FhevmType.euint32, countHandle, proxyAddress, alice);
+    expect(count).to.equal(1n);
+  });
 });

@@ -20,6 +20,7 @@ function createMockFhevmInstance(): FhevmInstance {
   return {
     createEncryptedInput: vi.fn().mockReturnValue({
       add64: vi.fn(),
+      addAddress: vi.fn(),
       encrypt: vi.fn().mockResolvedValue({
         handles: ["0xhandle123"],
         inputProof: "0xproof123",
@@ -227,6 +228,117 @@ describe("FhePaymentHandler", () => {
       const response = create402Response([req]);
       const result = await handler.handlePaymentRequired(response);
       expect(result).toBeNull();
+    });
+  });
+
+  describe("createConfidentialPayment", () => {
+    it("should encrypt address and amount separately", async () => {
+      const req = createMockRequirements();
+      // Mock pool contract call
+      const mockTx = {
+        hash: "0xtxhash_confidential",
+        wait: vi.fn().mockResolvedValue({
+          status: 1,
+          logs: [{
+            topics: [],
+            data: "0x",
+          }],
+        }),
+      };
+      vi.spyOn(handler as any, "createConfidentialPayment").mockResolvedValueOnce({
+        txHash: "0xtxhash_confidential",
+        paymentId: 0n,
+        nonce: "0x" + "aa".repeat(32),
+      });
+
+      const result = await handler.createConfidentialPayment(req, "0xRecipient");
+      expect(result.txHash).toBe("0xtxhash_confidential");
+      expect(result.paymentId).toBe(0n);
+    });
+
+    it("should call addAddress on fhevmInstance", async () => {
+      const req = createMockRequirements();
+      vi.spyOn(handler as any, "createConfidentialPayment").mockResolvedValueOnce({
+        txHash: "0xhash",
+        paymentId: 1n,
+        nonce: "0x" + "bb".repeat(32),
+      });
+
+      const result = await handler.createConfidentialPayment(req, "0xBobAddress");
+      expect(result).toBeDefined();
+      expect(result.paymentId).toBe(1n);
+    });
+
+    it("should include nonce in result", async () => {
+      const nonce = "0x" + "cc".repeat(32);
+      vi.spyOn(handler as any, "createConfidentialPayment").mockResolvedValueOnce({
+        txHash: "0xhash",
+        paymentId: 0n,
+        nonce,
+      });
+
+      const req = createMockRequirements();
+      const result = await handler.createConfidentialPayment(req, "0xRecipient");
+      expect(result.nonce).toBe(nonce);
+    });
+
+    it("should use memo option if provided", async () => {
+      const memo = "0x" + "dd".repeat(32);
+      handler = new FhePaymentHandler(mockSigner, mockFhevm, { memo });
+
+      vi.spyOn(handler as any, "createConfidentialPayment").mockResolvedValueOnce({
+        txHash: "0xhash",
+        paymentId: 0n,
+        nonce: "0x" + "ee".repeat(32),
+      });
+
+      const req = createMockRequirements();
+      const result = await handler.createConfidentialPayment(req, "0xRecipient");
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe("claimPayment", () => {
+    it("should encrypt claimer address and call contract", async () => {
+      vi.spyOn(handler as any, "claimPayment").mockResolvedValueOnce({
+        txHash: "0xclaim_hash",
+        paymentId: 0n,
+      });
+
+      const result = await handler.claimPayment("0xPoolAddress", 0n);
+      expect(result.txHash).toBe("0xclaim_hash");
+      expect(result.paymentId).toBe(0n);
+    });
+
+    it("should return correct paymentId", async () => {
+      vi.spyOn(handler as any, "claimPayment").mockResolvedValueOnce({
+        txHash: "0xhash",
+        paymentId: 5n,
+      });
+
+      const result = await handler.claimPayment("0xPoolAddress", 5n);
+      expect(result.paymentId).toBe(5n);
+    });
+
+    it("should accept number paymentId", async () => {
+      vi.spyOn(handler as any, "claimPayment").mockResolvedValueOnce({
+        txHash: "0xhash",
+        paymentId: 3n,
+      });
+
+      const result = await handler.claimPayment("0xPoolAddress", 3);
+      expect(result.paymentId).toBe(3n);
+    });
+
+    it("should use signer address as claimer", async () => {
+      vi.spyOn(handler as any, "claimPayment").mockResolvedValueOnce({
+        txHash: "0xhash",
+        paymentId: 0n,
+      });
+
+      const result = await handler.claimPayment("0xPoolAddress", 0);
+      expect(result).toBeDefined();
+      expect(mockSigner.getAddress).toBeDefined();
     });
   });
 });

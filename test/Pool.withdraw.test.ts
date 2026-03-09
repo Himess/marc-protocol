@@ -116,22 +116,23 @@ describe("ConfidentialPaymentPool — Withdraw", function () {
     ).to.be.revertedWithCustomError(pool, "WithdrawNotRequested");
   });
 
-  it("should silently cap withdraw to 0 on insufficient balance", async function () {
+  it("should cap withdraw to balance on insufficient funds (FHE.min)", async function () {
     // Alice has ~19_980_000 net (20M deposit - 20_000 fee)
+    // V2.0: FHE.min caps to balance instead of silently returning 0
     const input = fhevm.createEncryptedInput(poolAddress, alice.address);
     input.add64(50_000_000n); // More than balance
     const encrypted = await input.encrypt();
 
     await pool.connect(alice).requestWithdraw(encrypted.handles[0], encrypted.inputProof);
 
-    // Balance should be unchanged (withdrew 0 due to insufficient funds)
+    // Balance should be 0 (entire balance was withdrawn via FHE.min cap)
     const balAfter = await fhevm.userDecryptEuint(
       FhevmType.euint64,
       await pool.balanceOf(alice.address),
       poolAddress,
       alice
     );
-    expect(balAfter).to.equal(19_980_000n);
+    expect(balAfter).to.equal(0n);
   });
 
   it("should handle user with no balance requesting withdraw", async function () {

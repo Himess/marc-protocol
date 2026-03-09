@@ -12,7 +12,8 @@ export type {
   NonceStore,
 } from "./types.js";
 
-export { FHE_SCHEME, POOL_ABI } from "./types.js";
+export { FHE_SCHEME, POOL_ABI, PayErrorCode } from "./types.js";
+export type { ConfidentialPayResult, ClaimPaymentResult } from "./types.js";
 
 // Payment handler (client-side)
 export { FhePaymentHandler, decodePaymentHeader } from "./fhePaymentHandler.js";

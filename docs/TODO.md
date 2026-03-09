@@ -60,11 +60,52 @@
 - [x] Frontend: "Request Balance Decryption" button in BalanceDisplay
 - [x] Subgraph: schema (7 entities), manifest, mapping (14 event handlers), events-only ABI
 
+## Completed (V2.0)
+
+- [x] Contract: EncryptedErrors — euint8 pay error codes (FHE.or, FHE.select, FHE.asEuint8)
+- [x] Contract: Confidential Payment Routing — eaddress (FHE.eq, FHE.ne, FHE.select, FHE.asEaddress, FHE.fromExternal)
+- [x] Contract: Encrypted Fee Calculation — FHE.mul, FHE.div(scalar), FHE.max
+- [x] Contract: FHE.randEuint64() — random salt in payConfidential
+- [x] Contract: FHE.min in requestWithdraw (caps to balance instead of 0)
+- [x] Contract: Payment Counter — euint32 (FHE.add, FHE.asEuint32)
+- [x] Contract: payConfidential() — encrypted recipient + amount, escrow pattern
+- [x] Contract: claimPayment() — encrypted address match for claim
+- [x] Contract: _calculateEncryptedFee() — fully encrypted fee calculation
+- [x] Contract: 29 FHE op+type combos across 5 encrypted types (ebool, euint8, euint32, euint64, eaddress)
+- [x] Contract: Upgradeable variant (V2.0) — mirrored all features, __gap reduced to 46
+- [x] Tests: 24 new V2.0 tests (EncryptedErrors, Routing, Fee, Min, Counter)
+- [x] Tests: 2 new proxy V2.0 tests (error recording, payment count through proxy)
+- [x] Tests: Updated withdraw test for FHE.min semantics
+- [x] SDK: addAddress in FhevmEncryptedInput, POOL_ABI updated for V2.0
+- [x] SDK: createConfidentialPayment + claimPayment methods
+- [x] SDK: PayErrorCode enum, ConfidentialPayResult, ClaimPaymentResult types
+- [x] SDK: 8 new handler tests (confidential pay + claim)
+- [x] Frontend: ConfidentialPayForm component (encrypted recipient)
+- [x] Frontend: ClaimForm component (claim by payment ID)
+- [x] Frontend: BalanceDisplay — confidential payment count, payment counter, error display
+
+## Completed (V2.1)
+
+- [x] Contract: Spending Limit — encrypted daily limit (FHE.gt for overLimit, FHE.not for withinLimit)
+- [x] Contract: setSpendingLimit(externalEuint64) and removeSpendingLimit()
+- [x] Contract: Daily spent tracking with automatic period reset (SPENDING_PERIOD = 1 day)
+- [x] Contract: Fee Rounding — FHE.rem to detect remainder, round up fee by 1 to prevent dust loss
+- [x] Contract: Error Diagnostic — FHE.not for condition inversion, FHE.xor for exactly-one-error detection
+- [x] Contract: Error code expanded to bit flags (1=insufficient, 2=belowMin, 4=overLimit)
+- [x] Contract: lastPayExactlyOneError(address) → ebool view
+- [x] Contract: spendingLimitOf(address), dailySpentOf(address) views
+- [x] Contract: Spending limit enforced in both pay() and payConfidential()
+- [x] Contract: V2.1 mirrored in ConfidentialPaymentPoolUpgradeable (__gap reduced to 40)
+- [x] Tests: 9 new V2.1 tests (4 spending limit + 2 fee rounding + 3 xor diagnostic)
+- [x] Tests: 177 total contract tests (was 168)
+- [x] SDK: PayErrorCode.OVER_SPENDING_LIMIT (4) + new ABI entries + events
+- [x] SDK: 93 SDK tests passing
+
 ## In Progress
 
 - [ ] Demo video recording (5-minute walkthrough)
 
-## Planned (V1.4)
+## Planned (V2.1)
 
 - [ ] Professional security audit (Trail of Bits / OpenZeppelin / Quantstamp)
 - [ ] Bug bounty program (Immunefi / Code4rena)

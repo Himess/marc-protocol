@@ -4,6 +4,8 @@ import BalanceDisplay from "./components/BalanceDisplay";
 import DepositForm from "./components/DepositForm";
 import PayForm from "./components/PayForm";
 import WithdrawForm from "./components/WithdrawForm";
+import ConfidentialPayForm from "./components/ConfidentialPayForm";
+import ClaimForm from "./components/ClaimForm";
 import { BrowserProvider, JsonRpcSigner, Contract, ethers } from "ethers";
 import { initFhevm, createInstance } from "fhevmjs/web";
 
@@ -21,9 +23,12 @@ const POOL_ABI = [
   "function requestWithdraw(bytes32 encryptedAmount, bytes calldata inputProof) external",
   "function cancelWithdraw() external",
   "function finalizeWithdraw(uint64 clearAmount, bytes calldata decryptionProof) external",
+  "function payConfidential(bytes32 encryptedRecipient, bytes recipientProof, bytes32 encryptedAmount, bytes amountProof, uint64 minPrice, bytes32 nonce, bytes32 memo) external",
+  "function claimPayment(uint256 paymentId, bytes32 encryptedClaimer, bytes claimerProof) external",
   "function isInitialized(address account) external view returns (bool)",
   "function paused() external view returns (bool)",
   "function withdrawRequestedAt(address account) external view returns (uint256)",
+  "function confidentialPaymentCount() external view returns (uint256)",
 ];
 
 const USDC_ABI = [
@@ -34,6 +39,7 @@ const USDC_ABI = [
 interface FhevmInstance {
   createEncryptedInput: (contractAddress: string, userAddress: string) => {
     add64: (value: bigint | number) => void;
+    addAddress: (value: string) => void;
     encrypt: () => Promise<{ handles: string[]; inputProof: string }>;
   };
 }
@@ -233,6 +239,64 @@ export default function App() {
     }
   };
 
+  const onPayConfidential = async (recipient: string, amount: string) => {
+    try {
+      showStatus("Initializing FHE encryption...", "info");
+      const fhevmInst = await getFhevmInstance();
+      const { pool } = getContracts();
+      const raw = BigInt(Math.round(parseFloat(amount) * 1_000_000));
+
+      showStatus("Encrypting recipient address...", "info");
+      const addrInput = fhevmInst.createEncryptedInput(POOL_ADDRESS, address);
+      addrInput.addAddress(recipient);
+      const addrEnc = await addrInput.encrypt();
+
+      showStatus("Encrypting payment amount...", "info");
+      const amtInput = fhevmInst.createEncryptedInput(POOL_ADDRESS, address);
+      amtInput.add64(raw);
+      const amtEnc = await amtInput.encrypt();
+
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+
+      showStatus("Submitting confidential payment...", "info");
+      const tx = await pool.payConfidential(
+        addrEnc.handles[0], addrEnc.inputProof,
+        amtEnc.handles[0], amtEnc.inputProof,
+        raw, nonce, ethers.ZeroHash
+      );
+      const receipt = await tx.wait();
+      showStatus(`Confidential payment sent | TX: ${receipt.hash}`, "success");
+      logTx("Confidential Pay", receipt.hash, amount);
+    } catch (e: any) {
+      showStatus(e.message || "Confidential payment failed", "error");
+    }
+  };
+
+  const onClaimPayment = async (paymentId: string) => {
+    try {
+      showStatus("Initializing FHE encryption...", "info");
+      const fhevmInst = await getFhevmInstance();
+      const { pool } = getContracts();
+
+      showStatus("Encrypting your address for claim...", "info");
+      const input = fhevmInst.createEncryptedInput(POOL_ADDRESS, address);
+      input.addAddress(address);
+      const encrypted = await input.encrypt();
+
+      showStatus("Claiming payment...", "info");
+      const tx = await pool.claimPayment(
+        BigInt(paymentId),
+        encrypted.handles[0],
+        encrypted.inputProof
+      );
+      const receipt = await tx.wait();
+      showStatus(`Payment #${paymentId} claimed | TX: ${receipt.hash}`, "success");
+      logTx("Claim Payment", receipt.hash);
+    } catch (e: any) {
+      showStatus(e.message || "Claim failed", "error");
+    }
+  };
+
   const statusBg = statusType === "error" ? "#2a1515" : statusType === "success" ? "#152a15" : "#1a1a2e";
   const statusColor = statusType === "error" ? "#ff6b6b" : statusType === "success" ? "#6bff6b" : "#7b68ee";
 
@@ -264,6 +328,14 @@ export default function App() {
 
           <div style={styles.section}>
             <WithdrawForm onWithdraw={onWithdraw} />
+          </div>
+
+          <div style={styles.section}>
+            <ConfidentialPayForm onPayConfidential={onPayConfidential} />
+          </div>
+
+          <div style={styles.section}>
+            <ClaimForm onClaimPayment={onClaimPayment} />
           </div>
 
           <div style={styles.section}>

@@ -14,6 +14,7 @@ const POOL_ABI = [
   "function paused() view returns (bool)",
   "function withdrawRequestedAt(address) view returns (uint256)",
   "function requestBalance() external",
+  "function confidentialPaymentCount() view returns (uint256)",
 ];
 
 const styles: Record<string, React.CSSProperties> = {
@@ -51,6 +52,7 @@ export default function BalanceDisplay({ address, signer, usdcAddress, poolAddre
   const [isPaused, setIsPaused] = useState<boolean | null>(null);
   const [withdrawPending, setWithdrawPending] = useState<string | null>(null);
   const [decryptStatus, setDecryptStatus] = useState<DecryptStatus>("idle");
+  const [confidentialPayCount, setConfidentialPayCount] = useState<string>("...");
 
   const refresh = async () => {
     try {
@@ -69,6 +71,8 @@ export default function BalanceDisplay({ address, signer, usdcAddress, poolAddre
       } else {
         setWithdrawPending(null);
       }
+      const cpCount: bigint = await pool.confidentialPaymentCount();
+      setConfidentialPayCount(cpCount.toString());
     } catch {
       setUsdcBalance("Error");
     }
@@ -135,6 +139,22 @@ export default function BalanceDisplay({ address, signer, usdcAddress, poolAddre
           fontSize: withdrawPending ? 11 : 14,
         }}>
           {withdrawPending ?? "None"}
+        </span>
+      </div>
+      <div style={styles.row}>
+        <span>Confidential Payments</span>
+        <span style={styles.value}>{confidentialPayCount}</span>
+      </div>
+      <div style={styles.row}>
+        <span>Last Pay Error</span>
+        <span style={{ ...styles.value, fontSize: 11, color: "#666" }}>
+          Encrypted (use KMS to decrypt)
+        </span>
+      </div>
+      <div style={styles.row}>
+        <span>Payment Count</span>
+        <span style={{ ...styles.value, fontSize: 11, color: "#666" }}>
+          Encrypted (use KMS to decrypt)
         </span>
       </div>
       <button style={styles.refresh} onClick={refresh}>Refresh</button>

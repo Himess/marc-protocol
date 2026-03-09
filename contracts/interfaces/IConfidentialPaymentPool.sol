@@ -23,6 +23,11 @@ interface IConfidentialPaymentPool {
     event PoolCapUpdated(uint256 maxPoolBalance, uint256 maxUserDeposit);
     event Paused(address account);
     event Unpaused(address account);
+    event PayErrorRecorded(address indexed user);
+    event ConfidentialPaymentCreated(uint256 indexed paymentId, address indexed sender, uint64 minPrice, bytes32 nonce, bytes32 memo);
+    event ConfidentialPaymentClaimed(uint256 indexed paymentId, address indexed claimer);
+    event SpendingLimitUpdated(address indexed user);
+    event SpendingLimitRemoved(address indexed user);
 
     // ═══════════════════════════════════════
     // ERRORS
@@ -43,6 +48,8 @@ interface IConfidentialPaymentPool {
     error UserCapExceeded();
     error ContractPaused();
     error ContractNotPaused();
+    error PaymentNotFound();
+    error PaymentAlreadyClaimed();
 
     // ═══════════════════════════════════════
     // CORE FUNCTIONS
@@ -81,6 +88,33 @@ interface IConfidentialPaymentPool {
 
     /// @notice Request async decryption of balance (snapshot, not live)
     function requestBalance() external;
+
+    /// @notice Pay with encrypted recipient address and amount
+    function payConfidential(
+        externalEaddress encryptedRecipient,
+        bytes calldata recipientProof,
+        externalEuint64 encryptedAmount,
+        bytes calldata amountProof,
+        uint64 minPrice,
+        bytes32 nonce,
+        bytes32 memo
+    ) external;
+
+    /// @notice Claim a confidential payment by proving address match
+    function claimPayment(
+        uint256 paymentId,
+        externalEaddress encryptedClaimer,
+        bytes calldata claimerProof
+    ) external;
+
+    /// @notice Set an encrypted daily spending limit for the caller
+    function setSpendingLimit(
+        externalEuint64 encryptedLimit,
+        bytes calldata inputProof
+    ) external;
+
+    /// @notice Remove the caller's spending limit
+    function removeSpendingLimit() external;
 
     // ═══════════════════════════════════════
     // ADMIN
@@ -128,4 +162,22 @@ interface IConfidentialPaymentPool {
 
     /// @notice Get withdraw request timestamp
     function withdrawRequestedAt(address account) external view returns (uint256);
+
+    /// @notice Get last payment error code for a user (euint8)
+    function lastPayError(address account) external view returns (euint8);
+
+    /// @notice Get encrypted payment count for a user (euint32)
+    function paymentCountOf(address account) external view returns (euint32);
+
+    /// @notice Get total number of confidential payments created
+    function confidentialPaymentCount() external view returns (uint256);
+
+    /// @notice Get encrypted spending limit for a user (euint64)
+    function spendingLimitOf(address account) external view returns (euint64);
+
+    /// @notice Get encrypted daily spent amount for a user (euint64)
+    function dailySpentOf(address account) external view returns (euint64);
+
+    /// @notice Get whether exactly one error condition was true (ebool via FHE.xor)
+    function lastPayExactlyOneError(address account) external view returns (ebool);
 }

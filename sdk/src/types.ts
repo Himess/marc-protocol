@@ -98,6 +98,7 @@ export interface FhevmInstance {
 
 export interface FhevmEncryptedInput {
   add64: (value: bigint | number) => void;
+  addAddress: (value: string) => void;
   encrypt: () => Promise<{
     handles: string[];
     inputProof: string;
@@ -137,6 +138,10 @@ export const POOL_ABI = [
   "function setTreasury(address newTreasury) external",
   "function transferOwnership(address newOwner) external",
   "function acceptOwnership() external",
+  "function payConfidential(bytes32 encryptedRecipient, bytes calldata recipientProof, bytes32 encryptedAmount, bytes calldata amountProof, uint64 minPrice, bytes32 nonce, bytes32 memo) external",
+  "function claimPayment(uint256 paymentId, bytes32 encryptedClaimer, bytes calldata claimerProof) external",
+  "function setSpendingLimit(bytes32 encryptedLimit, bytes calldata inputProof) external",
+  "function removeSpendingLimit() external",
   "function balanceOf(address account) external view returns (bytes32)",
   "function balanceSnapshotOf(address account) external view returns (bytes32)",
   "function usedNonces(bytes32 nonce) external view returns (bool)",
@@ -144,6 +149,12 @@ export const POOL_ABI = [
   "function pendingWithdrawOf(address account) external view returns (bytes32)",
   "function withdrawRequestedAt(address account) external view returns (uint256)",
   "function paused() external view returns (bool)",
+  "function lastPayError(address account) external view returns (bytes32)",
+  "function paymentCountOf(address account) external view returns (bytes32)",
+  "function confidentialPaymentCount() external view returns (uint256)",
+  "function spendingLimitOf(address account) external view returns (bytes32)",
+  "function dailySpentOf(address account) external view returns (bytes32)",
+  "function lastPayExactlyOneError(address account) external view returns (bytes32)",
   "event Deposited(address indexed user, uint64 amount)",
   "event PaymentExecuted(address indexed from, address indexed to, uint64 minPrice, bytes32 nonce, bytes32 memo)",
   "event WithdrawRequested(address indexed user, uint256 expiresAt)",
@@ -156,4 +167,35 @@ export const POOL_ABI = [
   "event PoolCapUpdated(uint256 maxPoolBalance, uint256 maxUserDeposit)",
   "event Paused(address account)",
   "event Unpaused(address account)",
+  "event PayErrorRecorded(address indexed user)",
+  "event ConfidentialPaymentCreated(uint256 indexed paymentId, address indexed sender, uint64 minPrice, bytes32 nonce, bytes32 memo)",
+  "event ConfidentialPaymentClaimed(uint256 indexed paymentId, address indexed claimer)",
+  "event SpendingLimitUpdated(address indexed user)",
+  "event SpendingLimitRemoved(address indexed user)",
 ] as const;
+
+// ============================================================================
+// V2.0 Types
+// ============================================================================
+
+/** Pay error codes (decoded from euint8, bit flags) */
+export enum PayErrorCode {
+  OK = 0,
+  INSUFFICIENT_BALANCE = 1,
+  BELOW_MIN_PRICE = 2,
+  BOTH = 3,
+  OVER_SPENDING_LIMIT = 4,
+}
+
+/** Result of createConfidentialPayment */
+export interface ConfidentialPayResult {
+  txHash: string;
+  paymentId: bigint;
+  nonce: string;
+}
+
+/** Result of claimPayment */
+export interface ClaimPaymentResult {
+  txHash: string;
+  paymentId: bigint;
+}
