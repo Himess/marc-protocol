@@ -11,7 +11,7 @@ import { initFhevm, createInstance } from "fhevmjs/web";
 const SEPOLIA_RPC = "https://ethereum-sepolia-rpc.publicnode.com";
 
 const TOKEN_ADDRESS = "0x3864B98D1B1EC2109C679679052e2844b4153889"; // ConfidentialUSDC
-const VERIFIER_ADDRESS = "0x22c04558f9B0C4C5bA0b2676ccF943ee6d8F9490"; // X402PaymentVerifier
+const VERIFIER_ADDRESS = "0xCc60280A10FEB7fBdf20fBefc2abe6E0e99A5A83"; // X402PaymentVerifier
 const USDC_ADDRESS = "0xc89e913676B034f8b38E49f7508803d1cDEC9F4f"; // MockUSDC (V4.0 deploy)
 const CHAIN_ID = 11155111;
 const GATEWAY_URL = "https://gateway.sepolia.zama.ai";
@@ -26,7 +26,7 @@ const TOKEN_ABI = [
 ];
 
 const VERIFIER_ABI = [
-  "function recordPayment(address payer, address server, bytes32 nonce) external",
+  "function recordPayment(address payer, address server, bytes32 nonce, uint64 minPrice) external",
 ];
 
 const USDC_ABI = [
@@ -191,7 +191,7 @@ export default function App() {
       // Record payment nonce on verifier
       const nonce = ethers.hexlify(ethers.randomBytes(32));
       showStatus("Recording payment nonce...", "info");
-      const vTx = await verifier.recordPayment(address, to, nonce);
+      const vTx = await verifier.recordPayment(address, to, nonce, raw);
       await vTx.wait();
 
       showStatus(`Paid ${amount} cUSDC to ${to.slice(0, 8)}... | TX: ${receipt.hash}`, "success");

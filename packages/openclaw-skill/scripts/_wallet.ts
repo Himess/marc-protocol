@@ -7,9 +7,9 @@ import { parseArgs } from "node:util";
 // Constants
 // ============================================================================
 
-const DEFAULT_TOKEN = "0xNEW_TOKEN_ADDRESS"; // will deploy later
-const DEFAULT_VERIFIER = "0xNEW_VERIFIER_ADDRESS";
-const DEFAULT_USDC = "0x229146B746cf3A314dee33f08b84f8EFd5F314F4";
+const DEFAULT_TOKEN = "0x3864B98D1B1EC2109C679679052e2844b4153889";
+const DEFAULT_VERIFIER = "0xCc60280A10FEB7fBdf20fBefc2abe6E0e99A5A83";
+const DEFAULT_USDC = "0xc89e913676B034f8b38E49f7508803d1cDEC9F4f";
 const DEFAULT_GATEWAY = "https://gateway.sepolia.zama.ai";
 
 const USDC_ABI = [

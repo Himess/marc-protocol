@@ -7,11 +7,12 @@ import {ERC7984} from "@openzeppelin/confidential-contracts/token/ERC7984/ERC798
 import {ERC7984ERC20Wrapper} from "@openzeppelin/confidential-contracts/token/ERC7984/extensions/ERC7984ERC20Wrapper.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./interfaces/IConfidentialUSDC.sol";
+import {IERC7984Receiver} from "@openzeppelin/confidential-contracts/interfaces/IERC7984Receiver.sol";
 
 /// @title ConfidentialUSDC — FHE x402 Token (V4.0 — ERC-7984 + ERC7984ERC20Wrapper)
 /// @notice ERC-7984 confidential USDC token. Wrap USDC → encrypted cUSDC, transfer privately,
@@ -29,6 +30,7 @@ contract ConfidentialUSDC is
     IConfidentialUSDC
 {
     using SafeERC20 for IERC20;
+    using SafeCast for uint256;
 
     // ═══════════════════════════════════════
     // CONSTANTS
@@ -64,6 +66,7 @@ contract ConfidentialUSDC is
     {
         if (_treasury == address(0)) revert ZeroAddress();
         treasury = _treasury;
+        emit TreasuryUpdated(address(0), _treasury);
     }
 
     // ═══════════════════════════════════════
@@ -77,9 +80,15 @@ contract ConfidentialUSDC is
     function wrap(address to, uint256 amount) public override nonReentrant whenNotPaused {
         if (amount == 0) revert ZeroAmount();
 
+        // SafeCast: reverts if amount > type(uint64).max
+        uint64 safeAmount = SafeCast.toUint64(amount);
+
+        // Dust protection: amount must exceed minimum fee so net > 0
+        if (safeAmount <= MIN_PROTOCOL_FEE) revert DustAmount();
+
         // Calculate plaintext fee
-        uint64 fee = _calculateFee(uint64(amount));
-        uint64 netAmount = uint64(amount) - fee;
+        uint64 fee = _calculateFee(safeAmount);
+        uint64 netAmount = safeAmount - fee;
 
         // Transfer full USDC from user
         SafeERC20.safeTransferFrom(underlying(), msg.sender, address(this), amount);
@@ -87,8 +96,8 @@ contract ConfidentialUSDC is
         // Mint net cUSDC to recipient (encrypted)
         _mint(to, FHE.asEuint64(netAmount));
 
-        // Track fee as plaintext USDC held in contract
-        accumulatedFees += uint256(fee);
+        // Track fee as plaintext USDC held in contract (consistent with finalizeUnwrap)
+        accumulatedFees += uint256(fee) * rate();
     }
 
     // ═══════════════════════════════════════
@@ -98,14 +107,14 @@ contract ConfidentialUSDC is
     /// @dev Override parent's _unwrap to use our own _unwrapRecipients mapping.
     ///      Parent's _unwrapRequests is private, so we replicate the logic.
     function _unwrap(address from, address to, euint64 amount) internal override whenNotPaused {
-        require(to != address(0), ERC7984InvalidReceiver(to));
-        require(from == msg.sender || isOperator(from, msg.sender), ERC7984UnauthorizedSpender(from, msg.sender));
+        if (to == address(0)) revert ERC7984InvalidReceiver(to);
+        if (from != msg.sender && !isOperator(from, msg.sender)) revert ERC7984UnauthorizedSpender(from, msg.sender);
 
         // Burn tokens, get actual burnt amount handle
         euint64 burntAmount = _burn(from, amount);
         FHE.makePubliclyDecryptable(burntAmount);
 
-        assert(_unwrapRecipients[burntAmount] == address(0));
+        if (_unwrapRecipients[burntAmount] != address(0)) revert UnwrapAlreadyRequested();
         _unwrapRecipients[burntAmount] = to;
 
         emit UnwrapRequested(to, burntAmount);
@@ -116,9 +125,9 @@ contract ConfidentialUSDC is
         euint64 burntAmount,
         uint64 burntAmountCleartext,
         bytes calldata decryptionProof
-    ) public override nonReentrant {
+    ) public override nonReentrant whenNotPaused {
         address to = _unwrapRecipients[burntAmount];
-        require(to != address(0), InvalidUnwrapRequest(burntAmount));
+        if (to == address(0)) revert InvalidUnwrapRequest(burntAmount);
         delete _unwrapRecipients[burntAmount];
 
         // Verify KMS proof
@@ -142,6 +151,45 @@ contract ConfidentialUSDC is
         }
 
         emit UnwrapFinalized(to, burntAmount, burntAmountCleartext);
+    }
+
+    // ═══════════════════════════════════════
+    // V4.2 — TRANSFER AND CALL
+    // ═══════════════════════════════════════
+
+    /// @notice Transfer encrypted cUSDC and call a callback on the recipient.
+    ///         Enables single-TX payment + nonce recording.
+    ///         The recipient MUST implement IERC7984Receiver.
+    /// @param to Recipient contract address
+    /// @param encryptedAmount FHE-encrypted amount handle
+    /// @param inputProof FHE input proof
+    /// @param data Arbitrary calldata forwarded to onConfidentialTransferReceived
+    /// @return transferred The encrypted amount that was actually transferred
+    function confidentialTransferAndCall(
+        address to,
+        externalEuint64 encryptedAmount,
+        bytes calldata inputProof,
+        bytes calldata data
+    ) public override nonReentrant whenNotPaused returns (euint64 transferred) {
+        euint64 value = FHE.fromExternal(encryptedAmount, inputProof);
+        transferred = _transfer(msg.sender, to, value);
+
+        // Call the IERC7984Receiver callback on recipient (ERC-7984 standard)
+        if (to.code.length > 0) {
+            try IERC7984Receiver(to).onConfidentialTransferReceived(
+                msg.sender, // operator
+                msg.sender, // from
+                transferred,
+                data
+            ) returns (ebool accepted) {
+                // Store accepted flag — receiver signals acceptance via encrypted bool
+                FHE.allowTransient(accepted, address(this));
+            } catch {
+                revert TransferCallbackFailed();
+            }
+        }
+
+        FHE.allowTransient(transferred, msg.sender);
     }
 
     // ═══════════════════════════════════════

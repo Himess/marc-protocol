@@ -20,7 +20,10 @@ interface IConfidentialUSDC {
 
     error ZeroAddress();
     error ZeroAmount();
+    error DustAmount();
     error InsufficientFees();
+    error UnwrapAlreadyRequested();
+    error TransferCallbackFailed();
 
     // ═══════════════════════════════════════
     // ADMIN

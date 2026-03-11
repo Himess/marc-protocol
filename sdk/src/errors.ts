@@ -17,15 +17,14 @@ export enum FheErrorCode {
   NETWORK_ERROR = "NETWORK_ERROR",
   INSUFFICIENT_BALANCE = "INSUFFICIENT_BALANCE",
   CONTRACT_PAUSED = "CONTRACT_PAUSED",
-  POOL_CAP_EXCEEDED = "POOL_CAP_EXCEEDED",
 }
 
 export class FheX402Error extends Error {
   readonly code: FheErrorCode;
   readonly details?: Record<string, unknown>;
 
-  constructor(code: FheErrorCode, message: string, details?: Record<string, unknown>) {
-    super(message);
+  constructor(code: FheErrorCode, message: string, details?: Record<string, unknown>, options?: ErrorOptions) {
+    super(message, options);
     this.name = "FheX402Error";
     this.code = code;
     this.details = details;
@@ -61,8 +60,8 @@ export class TimeoutError extends FheX402Error {
 }
 
 export class NetworkError extends FheX402Error {
-  constructor(message: string, details?: Record<string, unknown>) {
-    super(FheErrorCode.NETWORK_ERROR, message, details);
+  constructor(message: string, details?: Record<string, unknown>, options?: ErrorOptions) {
+    super(FheErrorCode.NETWORK_ERROR, message, details, options);
     this.name = "NetworkError";
   }
 }

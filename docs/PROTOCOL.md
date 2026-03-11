@@ -1,126 +1,103 @@
-# FHE x402 Protocol Specification
+# FHE x402 Protocol Specification (V4.0)
 
 ## Overview
 
-FHE x402 uses Zama's fhEVM to enable encrypted USDC payments between AI agents on Ethereum. Payment amounts are encrypted using Fully Homomorphic Encryption — computations happen directly on ciphertext.
+FHE x402 is a token-centric confidential payment protocol for AI agents on Ethereum. It uses Zama's fhEVM to encrypt USDC payment amounts on-chain. Agents wrap USDC into encrypted cUSDC (ERC-7984), transfer it peer-to-peer with hidden amounts, and unwrap back to USDC when needed.
 
 **Scheme identifier:** `fhe-confidential-v1`
 **Chain:** Ethereum Sepolia (chainId: 11155111)
 **Token:** USDC (6 decimals)
 
-## Contract: ConfidentialPaymentPool
+## V4.0 Token-Centric Design
 
-### State
+V4.0 replaces the pool-based architecture (V1.0-V3.0) with a token-centric model:
+
+| | V1.0-V3.0 (Pool) | V4.0 (Token-Centric) |
+|---|---|---|
+| **Balances** | Pool holds all balances | Agents hold cUSDC directly |
+| **Deposit** | `pool.deposit(amount)` | `cUSDC.wrap(to, amount)` |
+| **Payment** | `pool.pay(to, enc, proof, minPrice, nonce)` | `cUSDC.confidentialTransfer(to, enc, proof)` + `verifier.recordPayment(payer, server, nonce, minPrice)` |
+| **Withdraw** | `pool.requestWithdraw()` + `pool.finalizeWithdraw()` | `cUSDC.unwrap(from, to, enc, proof)` + `cUSDC.finalizeUnwrap(handle, cleartext, proof)` |
+| **Transfer fee** | Fee on every payment | Free (fee only on wrap/unwrap) |
+| **Contracts** | 1 (ConfidentialPaymentPool) | 2 (ConfidentialUSDC + X402PaymentVerifier) |
+| **Standard** | Custom | ERC-7984 (OpenZeppelin Confidential Contracts) |
+
+## Contracts
+
+### ConfidentialUSDC
+
+ERC-7984 confidential token that wraps USDC into encrypted cUSDC. Inherits from `ERC7984ERC20Wrapper` for wrap/unwrap mechanics and adds a fee layer on top.
+
+**State:**
 
 | Variable | Type | Description |
 |----------|------|-------------|
-| `balances` | `mapping(address => euint64)` | FHE encrypted balances |
+| `treasury` | `address` | Fee recipient address |
+| `accumulatedFees` | `uint256` | Plaintext USDC fees available for withdrawal |
+| `_unwrapRecipients` | `mapping(euint64 => address)` | Tracks unwrap request recipients (private) |
+
+**Constants:**
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `FEE_BPS` | 10 | 0.1% fee rate |
+| `BPS` | 10,000 | Basis point denominator |
+| `MIN_PROTOCOL_FEE` | 10,000 | 0.01 USDC minimum fee |
+
+**Functions:**
+
+#### `wrap(address to, uint256 amount)`
+1. Validate `amount > 0`
+2. Calculate fee: `max(amount * 10 / 10000, 10000)`
+3. Transfer full USDC from sender to contract via `safeTransferFrom`
+4. Mint `amount - fee` as encrypted cUSDC to `to`: `_mint(to, FHE.asEuint64(netAmount))`
+5. Add fee to `accumulatedFees`
+6. Emits: `ConfidentialTransfer(address(0), to, encryptedAmount)`
+
+#### `confidentialTransfer(address to, bytes32 encAmount, bytes inputProof)`
+- Inherited from ERC-7984. Transfers encrypted cUSDC peer-to-peer.
+- No protocol fee.
+- Silent failure: transfers 0 on insufficient balance (no revert, no info leak).
+- Emits: `ConfidentialTransfer(from, to, encryptedAmount)`
+
+#### `unwrap(address from, address to, bytes32 encAmount, bytes inputProof)`
+1. Verify authorization (`msg.sender == from` or `isOperator(from, msg.sender)`)
+2. Burn encrypted tokens from `from`
+3. Request KMS decryption of burnt amount
+4. Store `_unwrapRecipients[burntAmount] = to`
+5. Emits: `UnwrapRequested(to, burntAmount)`
+
+#### `finalizeUnwrap(bytes32 burntAmount, uint64 cleartext, bytes decryptionProof)`
+1. Look up recipient from `_unwrapRecipients[burntAmount]`
+2. Verify KMS decryption proof via `FHE.checkSignatures`
+3. Calculate fee: `max(cleartext * 10 / 10000, 10000)`
+4. Transfer `cleartext - fee` USDC to recipient
+5. Add fee to `accumulatedFees`
+6. Delete `_unwrapRecipients[burntAmount]`
+7. Emits: `UnwrapFinalized(to, burntAmount, cleartext)`
+
+### X402PaymentVerifier
+
+Minimal nonce registry for x402 payment verification. Permissionless — any address can record a payment nonce.
+
+**State:**
+
+| Variable | Type | Description |
+|----------|------|-------------|
 | `usedNonces` | `mapping(bytes32 => bool)` | Replay prevention |
-| `withdrawPending` | `mapping(address => bool)` | Pending withdrawal flag |
-| `isInitialized` | `mapping(address => bool)` | Whether address has deposited |
-| `treasury` | `address` | Fee recipient |
-| `usdc` | `IERC20` | USDC token contract |
 
-### Functions
+#### `recordPayment(address payer, address server, bytes32 nonce, uint64 minPrice)`
+1. Revert if `usedNonces[nonce]` is true
+2. Set `usedNonces[nonce] = true`
+3. Emit `PaymentVerified(payer, server, nonce, minPrice)`
 
-#### `deposit(uint64 amount)`
-- Transfers plaintext USDC from sender to pool
-- Deducts fee: `max(amount * 10 / 10000, MIN_PROTOCOL_FEE)`
-- Credits `amount - fee` as encrypted balance: `FHE.add(balance, FHE.asEuint64(netAmount))`
-- Sets `isInitialized[sender] = true`
-- Emits `Deposited(sender, amount)`
-- Requires: `amount >= MIN_PROTOCOL_FEE` (prevents FHE underflow)
+The `minPrice` parameter allows servers to verify that the payer committed to paying at least the required price, even though the actual encrypted transfer amount is hidden.
 
-#### `pay(address to, bytes32 encryptedAmount, bytes inputProof, uint64 minPrice, bytes32 nonce)`
-- Decrypts encrypted amount from fhevmjs input
-- Deducts from sender's encrypted balance (silent failure on insufficient funds)
-- Credits to recipient's encrypted balance
-- Deducts fee from minPrice (plaintext calculation)
-- Sends fee to treasury
-- Marks nonce as used
-- Emits `PaymentExecuted(from, to, minPrice, nonce)`
-- Requires: `minPrice >= MIN_PROTOCOL_FEE`, `!usedNonces[nonce]`
+## Wire Format
 
-#### `requestWithdraw(bytes32 encryptedAmount, bytes inputProof)`
-- Initiates async withdrawal (step 1 of 2)
-- Deducts encrypted amount from balance
-- Sends decryption request to KMS
-- Sets `withdrawPending[sender] = true`
-- Emits `WithdrawRequested(sender)`
+### FhePaymentRequired (402 Response Body)
 
-#### `cancelWithdraw()`
-- Cancels pending withdrawal, refunds to encrypted balance
-- Clears `withdrawPending[sender]`
-- Emits `WithdrawCancelled(sender)`
-
-#### `finalizeWithdraw(uint64 clearAmount, bytes decryptionProof)`
-- KMS callback with decrypted amount (step 2 of 2)
-- Deducts fee from clearAmount
-- Transfers plaintext USDC to sender
-- Clears `withdrawPending[sender]`
-- Emits `WithdrawFinalized(sender, clearAmount)`
-
-#### `requestBalance()`
-- Creates snapshot of current encrypted balance
-- Sends decryption request to KMS for snapshot (not live balance)
-
-### Fee Structure
-
-```
-MIN_PROTOCOL_FEE = 10000  (0.01 USDC)
-FEE_BPS = 10              (0.1%)
-FEE_DENOMINATOR = 10000
-
-fee = max(amount * FEE_BPS / FEE_DENOMINATOR, MIN_PROTOCOL_FEE)
-```
-
-| Payment Amount | Fee | Rate |
-|---------------|-----|------|
-| 0.01 USDC | 0.01 USDC | 100% (minimum) |
-| 1 USDC | 0.01 USDC | 1% (minimum) |
-| 10 USDC | 0.01 USDC | 0.1% (breakeven) |
-| 100 USDC | 0.10 USDC | 0.1% (percentage) |
-| 1000 USDC | 1.00 USDC | 0.1% (percentage) |
-
-### Silent Failure Pattern
-
-FHE encrypted booleans (ebool) cannot be used in Solidity `if` statements. The fhEVM runtime would revert or leak information if code branches on encrypted conditions.
-
-**Solution:** Use `FHE.select()` to conditionally transfer 0 or the actual amount:
-```solidity
-euint64 transferAmount = FHE.select(hasSufficientBalance, amount, ZERO);
-```
-
-**Implications:**
-- `PaymentExecuted` event emits on EVERY pay() call, even when balance is insufficient
-- Server receives minPrice in the event but cannot determine actual encrypted transfer
-- Bounded risk: one free API response per failed payment (minPrice reveals intended cost)
-- No information about actual balance is leaked
-
-## x402 Payment Flow
-
-### Client Side
-
-1. `GET /api/premium` → Server returns `402` with `FhePaymentRequired` body
-2. Client parses requirements: scheme, network, chainId, price, poolAddress, recipientAddress
-3. Client encrypts amount: `fhevmjs.createEncryptedInput(pool, user).add64(amount).encrypt()`
-4. Client calls `pool.pay(to, encryptedAmount, inputProof, minPrice, nonce)` on-chain
-5. Client waits for confirmation
-6. Client retries with `Payment` header: `base64(JSON.stringify({scheme, txHash, nonce, from, chainId}))`
-
-### Server Side (Middleware)
-
-1. Check for `Payment` header
-2. If absent → return `402` with requirements
-3. If present → decode base64 JSON
-4. Verify: scheme matches, chainId matches, nonce is fresh
-5. Fetch transaction receipt from RPC
-6. Parse logs for `PaymentExecuted` event
-7. Verify: from matches, to matches, minPrice >= required price, nonce matches
-8. If verified → `next()` with `req.paymentInfo` attached
-9. Set `X-Payment-TxHash` response header
-
-### 402 Response Format
+Sent by the server when no valid `Payment` header is present:
 
 ```json
 {
@@ -131,7 +108,8 @@ euint64 transferAmount = FHE.select(hasSufficientBalance, amount, ZERO);
     "chainId": 11155111,
     "price": "1000000",
     "asset": "USDC",
-    "poolAddress": "0xfF87ec6cb07D8Aa26ABc81037e353A28c7752d73",
+    "tokenAddress": "0x3864B98D1B1EC2109C679679052e2844b4153889",
+    "verifierAddress": "0xCc60280A10FEB7fBdf20fBefc2abe6E0e99A5A83",
     "recipientAddress": "0x...",
     "maxTimeoutSeconds": 300
   }],
@@ -142,25 +120,125 @@ euint64 transferAmount = FHE.select(hasSufficientBalance, amount, ZERO);
 }
 ```
 
-### Payment Header Format
+### FhePaymentPayload (Payment Header)
+
+Sent by the client as a base64-encoded JSON string in the `Payment` HTTP header:
 
 ```json
 {
   "scheme": "fhe-confidential-v1",
   "txHash": "0x...",
+  "verifierTxHash": "0x...",
   "nonce": "0x...",
   "from": "0x...",
   "chainId": 11155111
 }
 ```
 
-## Security Considerations
+- `txHash` — The `confidentialTransfer` transaction hash
+- `verifierTxHash` — The `recordPayment` transaction hash
+- `nonce` — Unique bytes32 identifier (generated client-side via `crypto.randomBytes(32)`)
 
-1. **Nonce replay prevention** — Each nonce is marked used after first verification
-2. **Chain ID validation** — Prevents cross-chain replay attacks
-3. **Minimum fee enforcement** — `minPrice >= MIN_PROTOCOL_FEE` prevents FHE underflow
-4. **Rate limiting** — IP-based using `socket.remoteAddress` (prevents X-Forwarded-For spoofing)
-5. **Payment header size limit** — 100KB max to prevent DoS
-6. **Confirmation depth** — Configurable `minConfirmations` for block finality
-7. **2-step ownership transfer** — Prevents accidental ownership loss
-8. **Balance snapshot** — `requestBalance()` returns snapshot, not live handle (prevents manipulation)
+## Payment Flow — Single Payment
+
+```
+Agent A                       Chain                          Server B
+  |                             |                              |
+  |-- GET /api/data ----------------------------------------->|
+  |<--- 402 + FhePaymentRequired -----------------------------|
+  |                             |                              |
+  | fhevmjs.encrypt(amount)    |                              |
+  |-- confidentialTransfer --->|                              |
+  |  (to, encAmount, proof)    |-- ConfidentialTransfer event |
+  |                             |                              |
+  |-- recordPayment ---------->|                              |
+  |  (payer, server,           |-- PaymentVerified event      |
+  |   nonce, minPrice)         |                              |
+  |                             |                              |
+  |-- Retry + Payment header -------------------------------->|
+  |                             |  verify ConfidentialTransfer |
+  |                             |  verify PaymentVerified      |
+  |                             |  check minPrice >= price     |
+  |                             |  check nonce is fresh        |
+  |<--- 200 + data -------------------------------------------|
+```
+
+## Verification Algorithm
+
+Server-side middleware performs the following checks on each `Payment` header:
+
+1. **Decode** — Base64 decode the `Payment` header, parse as JSON
+2. **Scheme** — Verify `scheme === "fhe-confidential-v1"`
+3. **Chain** — Verify `chainId` matches expected chain
+4. **Nonce freshness** — Check nonce against `NonceStore` (reject replays)
+5. **Transfer event** — Fetch receipt for `txHash`, parse `ConfidentialTransfer(from, to, amount)` log:
+   - Verify `from` matches payload `from`
+   - Verify `to` matches configured `recipientAddress`
+   - Verify event emitted from expected `tokenAddress`
+6. **Verifier event** — Fetch receipt for `verifierTxHash`, parse `PaymentVerified(payer, server, nonce, minPrice)` log:
+   - Verify `payer` matches payload `from`
+   - Verify `server` matches configured `recipientAddress`
+   - Verify `nonce` matches payload `nonce`
+   - Verify `minPrice >= price` (configured required price)
+   - Verify event emitted from expected `verifierAddress`
+7. **Confirmations** — Check block depth >= `minConfirmations`
+8. **Record nonce** — Add nonce to `NonceStore` to prevent replay
+9. **Attach info** — Set `req.paymentInfo` and `X-Payment-TxHash` response header
+10. **Pass** — Call `next()`
+
+## Fee Model
+
+```
+fee = max(amount * FEE_BPS / BPS, MIN_PROTOCOL_FEE)
+    = max(amount * 10 / 10000, 10000)
+    = max(0.1% of amount, 0.01 USDC)
+```
+
+| Amount | Fee | Effective Rate |
+|--------|-----|----------------|
+| 0.01 USDC | 0.01 USDC | 100% (minimum) |
+| 1 USDC | 0.01 USDC | 1% |
+| 10 USDC | 0.01 USDC | 0.1% (breakeven) |
+| 100 USDC | 0.10 USDC | 0.1% |
+| 1,000 USDC | 1.00 USDC | 0.1% |
+
+**Fee is applied on:**
+- `wrap()` — Deducted from plaintext USDC before minting cUSDC
+- `finalizeUnwrap()` — Deducted from decrypted cleartext before transferring USDC
+
+**Fee is NOT applied on:**
+- `confidentialTransfer()` — Free peer-to-peer transfers
+
+**Fee collection:**
+- Fees accumulate in `accumulatedFees` (plaintext uint256)
+- Treasury or owner calls `treasuryWithdraw()` to collect as USDC
+
+## Silent Failure Pattern
+
+FHE encrypted booleans (`ebool`) cannot be used in Solidity `if` statements. The fhEVM runtime would revert or leak information if code branches on encrypted conditions.
+
+**Implementation:** The ERC-7984 base uses `FHE.select()` to conditionally transfer 0 or the actual amount:
+
+```solidity
+euint64 transferAmount = FHE.select(hasSufficientBalance, amount, ZERO);
+```
+
+**Implications:**
+- `ConfidentialTransfer` events emit on EVERY `confidentialTransfer()` call, even when balance is insufficient
+- The server cannot determine whether the actual encrypted transfer was 0 or the full amount
+- The server relies on `minPrice` from the `PaymentVerified` event as the payer's commitment
+- Bounded risk: one free API response per failed payment (the payer committed minPrice but may have transferred 0)
+- No information about actual balance is leaked through success/failure status
+
+## Security Properties
+
+1. **Amount privacy** — Transfer amounts are FHE encrypted. No on-chain observer can see how much was paid.
+2. **Balance privacy** — Token balances are FHE encrypted (euint64). Not visible on-chain.
+3. **Public participants** — Sender and recipient addresses are visible (deliberate x402 design choice).
+4. **Replay prevention** — On-chain `usedNonces` mapping + server-side `NonceStore` with TTL.
+5. **Silent failure** — Insufficient balance does not revert, preventing balance inference.
+6. **Reentrancy protection** — `nonReentrant` modifier on all state-changing functions.
+7. **Access control** — `Ownable2Step` for admin functions, operator system for delegated transfers.
+8. **Emergency pause** — Owner can pause wrap/unwrap operations.
+9. **Rate limiting** — Per-IP rate limiting using `req.socket.remoteAddress` (not spoofable via headers).
+10. **Minimum price commitment** — `recordPayment` requires `minPrice` so servers can verify price commitment even without seeing the encrypted amount.

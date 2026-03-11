@@ -4,7 +4,7 @@
 
 - ConfidentialPaymentPool with FHE encrypted balances
 - Silent failure pattern for amount privacy
-- Protocol fee: max(0.1%, $0.01 minimum)
+- Protocol fee: max(0.1%, $0.01 minimum) on all operations
 - 2-step async withdrawal via KMS
 - TypeScript SDK: payment handler, paywall middleware, auto-402 fetch
 - 138 tests (86 contract + 52 SDK) at initial release
@@ -19,36 +19,82 @@
 - OpenClaw skill (6 scripts)
 - ElizaOS example plugin
 - React frontend demo
-- Demo scripts (terminal demo, buyer/seller examples)
-- Documentation (Lightpaper, Protocol spec, Roadmap)
-- 211 tests across all packages (86 contract + 72 SDK + 28 Virtuals + 25 OpenClaw)
-- CI/CD for all packages
+- 211 tests across all packages
 
-## V1.2 — Production Ready (Planned)
+## V1.2 — Production Features (Complete)
 
-- Professional security audit (Trail of Bits / OpenZeppelin level)
-- Ethereum mainnet deployment
-- Gas optimization pass
-- Redis NonceStore reference implementation
-- Monitoring and alerting setup
-- Rate limiting with persistent store (Redis)
+- Pausable, treasury withdraw, withdraw timeout, TVL/user caps
+- Payment memo (bytes32), treasury fee migration
+- SDK: error classes, retry logic, timeout, memo support
+- 245+ tests
 
-## V2.0 — Multi-Chain (Planned)
+## V1.3 — Infrastructure (Complete)
 
-- L2 deployment: Base Sepolia → Base Mainnet
-- L2 deployment: Arbitrum
-- Multi-token support (USDC, WETH, DAI)
-- Browser-friendly decryption gateway (balance checking without full KMS)
-- Subscription payment model (recurring encrypted payments)
-- Facilitator deployment and documentation
+- Redis NonceStore example
+- UUPS proxy upgrade pattern
+- PoolMigrationHelper contract
+- Decryption gateway (balance checking)
+- Subgraph (7 entities, 14 event handlers)
 
-## V2.1 — Scale (Planned)
+## V2.0 — Advanced FHE (Complete)
 
+- Encrypted error codes (euint8 bit flags)
+- Confidential payment routing (eaddress)
+- Fully encrypted fee calculation (FHE.mul, FHE.div, FHE.max)
+- Random salt (FHE.randEuint64), payment counter (euint32)
+- payConfidential + claimPayment (escrow pattern)
+- 29 FHE op+type combos across 5 encrypted types
+
+## V2.1 — Spending Controls (Complete)
+
+- Encrypted daily spending limit
+- Fee rounding (FHE.rem, round up by 1)
+- Error diagnostic (FHE.xor for exactly-one-error)
+
+## V3.0 — ERC-7984 Migration (Complete)
+
+- Migrated to OpenZeppelin Confidential Contracts (ERC-7984)
+- Standard confidentialBalanceOf, confidentialTransfer, setOperator
+- Replaced custom _balances with ERC7984 _mint/_burn/_update
+
+## V4.0 — Token-Centric Rewrite (Complete)
+
+- Replaced pool-based architecture with token-centric design
+- Two contracts: ConfidentialUSDC (ERC-7984 wrapper) + X402PaymentVerifier (nonce registry)
+- Agents hold cUSDC directly (no pool)
+- Fee-free confidentialTransfer (fees only on wrap/unwrap)
+- Dual-TX payment: confidentialTransfer + recordPayment
+- SDK: tokenAddress + verifierAddress (replaces poolAddress)
+- Dual event verification (ConfidentialTransfer + PaymentVerified)
+- 217 tests (78 contract + 84 SDK + 30 Virtuals + 25 OpenClaw)
+- Deployed on Sepolia (all contracts verified on Etherscan)
+
+## V4.1 — Bug Fixes + minPrice (Complete)
+
+- minPrice parameter added to X402PaymentVerifier.recordPayment
+- assert()/require() syntax issues fixed in ConfidentialUSDC
+- _unwrapRecipients cleanup added to finalizeUnwrap
+- Dead error codes removed from SDK
+- Documentation fully rewritten for V4.0 architecture
+
+## V5.0 — Production Polish (Planned)
+
+- ESLint v10 migration (flat config)
+- Frontend overhaul: responsive design, loading states, error handling
+- Vercel auto-deploy for frontend
+- Encrypted reputation score (threshold-based, privacy-preserving)
+- Transfer fee evaluation (1-2 bps discussion)
+- Gas benchmarking report
+- Professional security audit
+- Bug bounty program
+
+## V6.0 — Multi-Chain + Multi-Token (Future)
+
+- Cross-chain deployment when Zama coprocessor L2 support arrives (Base, Arbitrum)
+- Multi-token factory: wrap WETH, DAI, and other ERC-20s as confidential ERC-7984 tokens
 - Facilitator network (multiple operators, load balancing)
-- Batch payments (pay N recipients in one transaction)
-- Agent fleet management SDK
-- Governance token for treasury and parameter management
-- Cross-chain encrypted payments (bridge integration)
+- Ethereum mainnet deployment
+- Subscription payment model (recurring encrypted payments)
 
 ## Long-term Vision
 

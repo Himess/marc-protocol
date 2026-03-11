@@ -49,6 +49,9 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
   const network = `eip155:${chainId}`;
 
   // API key authentication middleware
+  if (!config.apiKey) {
+    console.warn("[fhe-x402] WARNING: No API key configured. Facilitator endpoints are unauthenticated.");
+  }
   if (config.apiKey) {
     app.use((req: any, res: any, nextFn: any) => {
       if (req.path === "/health" || req.path === "/info") return nextFn();
@@ -105,7 +108,11 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
         });
       }
 
-      if (reqNetwork && reqNetwork !== network) {
+      if (!reqNetwork) {
+        return res.status(400).json({ error: "Missing network field" });
+      }
+
+      if (reqNetwork !== network) {
         return res.status(400).json({
           valid: false,
           error: `Unsupported network: ${reqNetwork}`,

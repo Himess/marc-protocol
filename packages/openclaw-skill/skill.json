@@ -1,0 +1,109 @@
+{
+  "name": "fhe-x402-payment",
+  "version": "0.1.0",
+  "description": "FHE-encrypted x402 payment skill for AI agents. Wrap USDC to encrypted cUSDC, make confidential payments, unwrap back to USDC.",
+  "author": "Himess",
+  "license": "BUSL-1.1",
+  "commands": {
+    "wrap": {
+      "description": "Wrap USDC into encrypted cUSDC (ERC-7984)",
+      "script": "scripts/wrap.ts",
+      "args": {
+        "amount": {
+          "type": "string",
+          "required": true,
+          "description": "Amount of USDC to wrap (e.g. '2' for 2 USDC)"
+        }
+      }
+    },
+    "pay": {
+      "description": "Send encrypted cUSDC payment to another address",
+      "script": "scripts/pay.ts",
+      "args": {
+        "to": {
+          "type": "string",
+          "required": true,
+          "description": "Recipient Ethereum address"
+        },
+        "amount": {
+          "type": "string",
+          "required": true,
+          "description": "Amount of USDC to pay (e.g. '1' for 1 USDC)"
+        }
+      }
+    },
+    "unwrap": {
+      "description": "Request unwrap of cUSDC back to USDC (step 1 of 2)",
+      "script": "scripts/unwrap.ts",
+      "args": {
+        "amount": {
+          "type": "string",
+          "required": true,
+          "description": "Amount to unwrap (e.g. '1' for 1 USDC)"
+        }
+      }
+    },
+    "finalizeUnwrap": {
+      "description": "Finalize unwrap after KMS decryption callback (step 2 of 2)",
+      "script": "scripts/finalizeUnwrap.ts",
+      "args": {
+        "burntAmount": {
+          "type": "string",
+          "required": true,
+          "description": "The encrypted amount handle from the unwrap request"
+        },
+        "cleartextAmount": {
+          "type": "string",
+          "required": true,
+          "description": "The decrypted cleartext amount from KMS"
+        },
+        "decryptionProof": {
+          "type": "string",
+          "required": true,
+          "description": "The decryption proof from KMS"
+        }
+      }
+    },
+    "balance": {
+      "description": "Check wallet USDC balance and encrypted cUSDC status",
+      "script": "scripts/balance.ts",
+      "args": {}
+    },
+    "info": {
+      "description": "Display wallet, contract addresses, and network info",
+      "script": "scripts/info.ts",
+      "args": {}
+    }
+  },
+  "environment": {
+    "PRIVATE_KEY": {
+      "required": true,
+      "description": "Ethereum private key for signing transactions"
+    },
+    "RPC_URL": {
+      "required": false,
+      "description": "Ethereum RPC URL (default: Sepolia public node)"
+    },
+    "TOKEN_ADDRESS": {
+      "required": false,
+      "description": "ConfidentialUSDC contract address"
+    },
+    "VERIFIER_ADDRESS": {
+      "required": false,
+      "description": "X402PaymentVerifier contract address"
+    },
+    "USDC_ADDRESS": {
+      "required": false,
+      "description": "MockUSDC contract address"
+    }
+  },
+  "network": {
+    "chain": "Ethereum Sepolia",
+    "chainId": 11155111,
+    "contracts": {
+      "MockUSDC": "0xc89e913676B034f8b38E49f7508803d1cDEC9F4f",
+      "ConfidentialUSDC": "0x3864B98D1B1EC2109C679679052e2844b4153889",
+      "X402PaymentVerifier": "0xCc60280A10FEB7fBdf20fBefc2abe6E0e99A5A83"
+    }
+  }
+}

@@ -41,6 +41,7 @@ export async function fheFetch(
     timeoutMs,
     maxRetries,
     retryDelayMs,
+    preferSingleTx,
     ...fetchOptions
   } = options;
   void _tokenAddress;
@@ -64,7 +65,8 @@ export async function fheFetch(
   });
 
   let result: FhePaymentResult | null;
-  result = await handler.handlePaymentRequired(responseForParsing);
+  // Encryption timeout is handled by the overall retry mechanism
+  result = await handler.handlePaymentRequired(responseForParsing, { preferSingleTx });
 
   if (!result) return response;
 
@@ -85,14 +87,15 @@ export async function fheFetch(
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt < retries) {
-        await sleep(delay * (attempt + 1)); // linear backoff
+        await sleep(delay * Math.pow(2, attempt)); // exponential backoff
       }
     }
   }
 
   throw new NetworkError(
     `Failed after ${retries + 1} attempts: ${lastError?.message}`,
-    { url: String(url), retries }
+    { url: String(url), retries },
+    lastError ? { cause: lastError } : undefined
   );
 }
 
@@ -114,6 +117,7 @@ export async function fheFetchWithCallback(
     allowedNetworks,
     dryRun,
     timeoutMs,
+    preferSingleTx: preferSingleTx2,
     ...fetchOptions
   } = options;
   void _tokenAddress2;
@@ -133,7 +137,7 @@ export async function fheFetchWithCallback(
     allowedNetworks,
   });
 
-  const result = await handler.handlePaymentRequired(responseForParsing);
+  const result = await handler.handlePaymentRequired(responseForParsing, { preferSingleTx: preferSingleTx2 });
   if (!result) return response;
 
   const retryHeaders = new Headers(fetchOptions.headers);

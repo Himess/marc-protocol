@@ -32,7 +32,7 @@ describe("E2E: ConfidentialUSDC + X402PaymentVerifier", function () {
     await token.waitForDeployment();
 
     const Verifier = await ethers.getContractFactory("X402PaymentVerifier");
-    verifier = await Verifier.deploy();
+    verifier = await Verifier.deploy(await token.getAddress());
     await verifier.waitForDeployment();
   });
 
@@ -51,7 +51,10 @@ describe("E2E: ConfidentialUSDC + X402PaymentVerifier", function () {
     expect(await token.FEE_BPS()).to.equal(FEE_BPS);
     expect(await token.MIN_PROTOCOL_FEE()).to.equal(MIN_PROTOCOL_FEE);
 
-    // Verifier has no constructor state, just check a random nonce is unused
+    // Verifier trustedToken is the token
+    expect(await verifier.trustedToken()).to.equal(tokenAddr);
+
+    // Random nonce is unused
     const randomNonce = ethers.hexlify(ethers.randomBytes(32));
     expect(await verifier.usedNonces(randomNonce)).to.equal(false);
   });
@@ -79,8 +82,8 @@ describe("E2E: ConfidentialUSDC + X402PaymentVerifier", function () {
     const expectedFee = calculateFee(wrapAmount);
     expect(await token.accumulatedFees()).to.equal(expectedFee);
 
-    // Record payment on verifier
-    await verifier.connect(alice).recordPayment(alice.address, bob.address, nonce);
+    // Record payment on verifier (msg.sender = alice is used as payer)
+    await verifier.connect(alice).recordPayment(bob.address, nonce, 1000000n);
 
     // Nonce is now marked as used
     expect(await verifier.usedNonces(nonce)).to.equal(true);
@@ -97,13 +100,13 @@ describe("E2E: ConfidentialUSDC + X402PaymentVerifier", function () {
     await usdc.mint(alice.address, amount1);
     await usdc.connect(alice).approve(await token.getAddress(), amount1);
     await token.connect(alice).wrap(alice.address, amount1);
-    await verifier.connect(alice).recordPayment(alice.address, bob.address, nonce1);
+    await verifier.connect(alice).recordPayment(bob.address, nonce1, 1000000n);
 
     // Mint and wrap for alice (second payment)
     await usdc.mint(alice.address, amount2);
     await usdc.connect(alice).approve(await token.getAddress(), amount2);
     await token.connect(alice).wrap(alice.address, amount2);
-    await verifier.connect(alice).recordPayment(alice.address, bob.address, nonce2);
+    await verifier.connect(alice).recordPayment(bob.address, nonce2, 1000000n);
 
     // Both nonces used
     expect(await verifier.usedNonces(nonce1)).to.equal(true);
@@ -122,17 +125,17 @@ describe("E2E: ConfidentialUSDC + X402PaymentVerifier", function () {
   it("replay prevention: same nonce reverts on second recordPayment", async function () {
     const nonce = ethers.hexlify(ethers.randomBytes(32));
 
-    // First call succeeds
-    await expect(verifier.recordPayment(alice.address, bob.address, nonce))
+    // First call succeeds (msg.sender = alice is payer)
+    await expect(verifier.connect(alice).recordPayment(bob.address, nonce, 1000000n))
       .to.emit(verifier, "PaymentVerified")
-      .withArgs(alice.address, bob.address, nonce);
+      .withArgs(alice.address, bob.address, nonce, 1000000n);
 
     // Second call with same nonce reverts
-    await expect(verifier.recordPayment(alice.address, bob.address, nonce))
+    await expect(verifier.connect(alice).recordPayment(bob.address, nonce, 1000000n))
       .to.be.revertedWithCustomError(verifier, "NonceAlreadyUsed");
 
     // Even from a different caller, same nonce still reverts
-    await expect(verifier.connect(bob).recordPayment(alice.address, bob.address, nonce))
+    await expect(verifier.connect(bob).recordPayment(bob.address, nonce, 1000000n))
       .to.be.revertedWithCustomError(verifier, "NonceAlreadyUsed");
   });
 
@@ -142,7 +145,7 @@ describe("E2E: ConfidentialUSDC + X402PaymentVerifier", function () {
     const nonce = ethers.hexlify(ethers.randomBytes(32));
 
     // Record payment first (no wrap needed for verifier)
-    await verifier.recordPayment(alice.address, bob.address, nonce);
+    await verifier.connect(alice).recordPayment(bob.address, nonce, 1000000n);
     expect(await verifier.usedNonces(nonce)).to.equal(true);
 
     // Token state is unaffected by verifier call
@@ -233,29 +236,29 @@ describe("E2E: ConfidentialUSDC + X402PaymentVerifier", function () {
     const nonceBobToAlice = ethers.hexlify(ethers.randomBytes(32));
     const nonceOwnerToBob = ethers.hexlify(ethers.randomBytes(32));
 
-    // Alice wraps and pays Bob
+    // Alice wraps and pays Bob (msg.sender = alice is payer)
     await usdc.mint(alice.address, amount);
     await usdc.connect(alice).approve(await token.getAddress(), amount);
     await token.connect(alice).wrap(alice.address, amount);
-    await expect(verifier.connect(alice).recordPayment(alice.address, bob.address, nonceAliceToBob))
+    await expect(verifier.connect(alice).recordPayment(bob.address, nonceAliceToBob, 1000000n))
       .to.emit(verifier, "PaymentVerified")
-      .withArgs(alice.address, bob.address, nonceAliceToBob);
+      .withArgs(alice.address, bob.address, nonceAliceToBob, 1000000n);
 
-    // Bob wraps and pays Alice (reverse direction)
+    // Bob wraps and pays Alice (msg.sender = bob is payer)
     await usdc.mint(bob.address, amount);
     await usdc.connect(bob).approve(await token.getAddress(), amount);
     await token.connect(bob).wrap(bob.address, amount);
-    await expect(verifier.connect(bob).recordPayment(bob.address, alice.address, nonceBobToAlice))
+    await expect(verifier.connect(bob).recordPayment(alice.address, nonceBobToAlice, 1000000n))
       .to.emit(verifier, "PaymentVerified")
-      .withArgs(bob.address, alice.address, nonceBobToAlice);
+      .withArgs(bob.address, alice.address, nonceBobToAlice, 1000000n);
 
-    // Owner wraps and pays Bob
+    // Owner wraps and pays Bob (msg.sender = owner is payer)
     await usdc.mint(owner.address, amount);
     await usdc.connect(owner).approve(await token.getAddress(), amount);
     await token.connect(owner).wrap(owner.address, amount);
-    await expect(verifier.connect(owner).recordPayment(owner.address, bob.address, nonceOwnerToBob))
+    await expect(verifier.connect(owner).recordPayment(bob.address, nonceOwnerToBob, 1000000n))
       .to.emit(verifier, "PaymentVerified")
-      .withArgs(owner.address, bob.address, nonceOwnerToBob);
+      .withArgs(owner.address, bob.address, nonceOwnerToBob, 1000000n);
 
     // All nonces used
     expect(await verifier.usedNonces(nonceAliceToBob)).to.equal(true);
@@ -281,7 +284,7 @@ describe("E2E: ConfidentialUSDC + X402PaymentVerifier", function () {
     await usdc.mint(alice.address, wrapAmount);
     await usdc.connect(alice).approve(await token.getAddress(), wrapAmount);
     await token.connect(alice).wrap(alice.address, wrapAmount);
-    await verifier.recordPayment(alice.address, bob.address, nonceBefore);
+    await verifier.connect(alice).recordPayment(bob.address, nonceBefore, 1000000n);
 
     // Owner pauses token
     await token.connect(owner).pause();
@@ -293,19 +296,58 @@ describe("E2E: ConfidentialUSDC + X402PaymentVerifier", function () {
       .to.be.revertedWithCustomError(token, "EnforcedPause");
 
     // But verifier still works fine while token is paused
-    await expect(verifier.recordPayment(alice.address, bob.address, nonceDuring))
+    await expect(verifier.connect(alice).recordPayment(bob.address, nonceDuring, 1000000n))
       .to.emit(verifier, "PaymentVerified")
-      .withArgs(alice.address, bob.address, nonceDuring);
+      .withArgs(alice.address, bob.address, nonceDuring, 1000000n);
     expect(await verifier.usedNonces(nonceDuring)).to.equal(true);
 
     // Unpause and verify both contracts work again
     await token.connect(owner).unpause();
     await token.connect(alice).wrap(alice.address, wrapAmount);
-    await verifier.recordPayment(alice.address, bob.address, nonceAfter);
+    await verifier.connect(alice).recordPayment(bob.address, nonceAfter, 1000000n);
     expect(await verifier.usedNonces(nonceAfter)).to.equal(true);
   });
 
-  // 10. System state consistency: wrap amounts + fees + balances all add up correctly
+  // 10. E2E batch payment flow: mint -> wrap -> recordBatchPayment -> verify nonce + event
+  it("batch payment flow: mint, wrap, recordBatchPayment, verify nonce and event", async function () {
+    const wrapAmount = 10_000_000n; // 10 USDC
+    const nonce = ethers.hexlify(ethers.randomBytes(32));
+    const requestCount = 10;
+    const pricePerRequest = 1_000_000n; // 1 USDC per request
+
+    // Mint USDC to alice
+    await usdc.mint(alice.address, wrapAmount);
+    expect(await usdc.balanceOf(alice.address)).to.equal(wrapAmount);
+
+    // Alice approves and wraps USDC into cUSDC
+    await usdc.connect(alice).approve(await token.getAddress(), wrapAmount);
+    await token.connect(alice).wrap(alice.address, wrapAmount);
+
+    // USDC transferred from alice to token contract
+    expect(await usdc.balanceOf(alice.address)).to.equal(0n);
+    expect(await usdc.balanceOf(await token.getAddress())).to.equal(wrapAmount);
+
+    // Fee accumulated
+    const expectedFee = calculateFee(wrapAmount);
+    expect(await token.accumulatedFees()).to.equal(expectedFee);
+
+    // Alice calls recordBatchPayment on verifier
+    await expect(
+      verifier.connect(alice).recordBatchPayment(bob.address, nonce, requestCount, pricePerRequest)
+    )
+      .to.emit(verifier, "BatchPaymentRecorded")
+      .withArgs(alice.address, bob.address, nonce, requestCount, pricePerRequest);
+
+    // Nonce is now marked as used
+    expect(await verifier.usedNonces(nonce)).to.equal(true);
+
+    // Replay reverts
+    await expect(
+      verifier.connect(alice).recordBatchPayment(bob.address, nonce, requestCount, pricePerRequest)
+    ).to.be.revertedWithCustomError(verifier, "NonceAlreadyUsed");
+  });
+
+  // 11. System state consistency: wrap amounts + fees + balances all add up correctly
   it("system state consistency: wrap amounts, fees, and balances add up", async function () {
     const amounts = [
       { user: alice, amount: 1_000_000n }, // 1 USDC (min fee)
@@ -325,7 +367,7 @@ describe("E2E: ConfidentialUSDC + X402PaymentVerifier", function () {
       await token.connect(user).wrap(user.address, amount);
 
       const nonce = ethers.hexlify(ethers.randomBytes(32));
-      await verifier.recordPayment(user.address, bob.address, nonce);
+      await verifier.connect(user).recordPayment(bob.address, nonce, 1000000n);
       nonces.push(nonce);
 
       totalDeposited += amount;

@@ -28,7 +28,7 @@ export interface IFhePluginOptions {
   };
 }
 
-const DEFAULT_USDC = "0x229146B746cf3A314dee33f08b84f8EFd5F314F4";
+const DEFAULT_USDC = "0xc89e913676B034f8b38E49f7508803d1cDEC9F4f";
 const USDC_ABI = [
   "function approve(address spender, uint256 amount) external returns (bool)",
   "function balanceOf(address account) external view returns (uint256)",
@@ -267,9 +267,9 @@ class FhePlugin {
 
           // Record payment in verifier
           const verifierTx = await verifier.recordPayment(
-            signerAddress,
             to,
-            nonce
+            nonce,
+            rawAmount
           );
           const verifierReceipt = await verifierTx.wait();
 
@@ -307,7 +307,7 @@ class FhePlugin {
     return new GameFunction({
       name: "fhe_unwrap",
       description:
-        "Unwrap cUSDC back to USDC (step 1 of 2). Encrypts the unwrap amount and submits on-chain. Step 2 (finalize) requires async KMS decryption callback.",
+        "Unwrap cUSDC back to USDC (step 1 of 2). Encrypts the unwrap amount and submits on-chain. After the KMS processes the decryption, call fhe_finalize_unwrap to complete step 2.",
       args: [
         {
           name: "amount",
@@ -365,7 +365,7 @@ class FhePlugin {
               amount: amountStr,
               txHash: receipt.hash,
               blockNumber: receipt.blockNumber,
-              note: "Step 1 complete. Step 2 (finalize) requires async KMS callback.",
+              note: "Step 1 complete. After KMS processes the decryption, call fhe_finalize_unwrap to finalize.",
             })
           );
         } catch (e: unknown) {
@@ -388,19 +388,27 @@ class FhePlugin {
     return new GameFunction({
       name: "fhe_balance",
       description:
-        "Check the wallet's public USDC balance. Encrypted cUSDC balance requires KMS decryption.",
+        "Check the wallet's public USDC balance and encrypted cUSDC balance handle. Decrypting the encrypted balance requires KMS.",
       args: [] as const,
       executable: async (_args, logger) => {
         try {
           logger("Checking balance status...");
 
-          const { usdc, signer } = await self.getContracts();
+          const { usdc, token, signer } = await self.getContracts();
           const address = await signer.getAddress();
 
           const publicBalance: bigint = await usdc.balanceOf(address);
           const balanceUSDC = (Number(publicBalance) / 1_000_000).toFixed(2);
 
-          logger(`Public USDC: ${balanceUSDC}`);
+          // Get encrypted balance handle (can't decrypt without KMS, but shows if non-zero)
+          let encryptedBalanceHandle: string = "0x" + "00".repeat(32);
+          try {
+            encryptedBalanceHandle = await token.confidentialBalanceOf(address);
+          } catch { /* confidentialBalanceOf may not be available in mock */ }
+
+          const hasEncryptedBalance = encryptedBalanceHandle !== "0x" + "00".repeat(32);
+
+          logger(`Public USDC: ${balanceUSDC}, Has encrypted balance: ${hasEncryptedBalance}`);
 
           return new ExecutableGameFunctionResponse(
             ExecutableGameFunctionStatus.Done,
@@ -409,7 +417,9 @@ class FhePlugin {
               walletAddress: address,
               publicBalanceUSDC: balanceUSDC,
               publicBalance: publicBalance.toString(),
-              note: "Encrypted cUSDC balance requires KMS decryption.",
+              encryptedBalanceHandle,
+              hasEncryptedBalance,
+              note: "Encrypted cUSDC balance handle shown. Decrypting the actual amount requires KMS.",
             })
           );
         } catch (e: unknown) {
@@ -417,6 +427,72 @@ class FhePlugin {
           return new ExecutableGameFunctionResponse(
             ExecutableGameFunctionStatus.Failed,
             `Balance check failed: ${msg}`
+          );
+        }
+      },
+    });
+  }
+
+  // ============================================================================
+  // GameFunction: fhe_finalize_unwrap
+  // ============================================================================
+
+  get finalizeUnwrapFunction() {
+    const self = this;
+    return new GameFunction({
+      name: "fhe_finalize_unwrap",
+      description:
+        "Finalize a pending unwrap (step 2 of 2). The KMS must have processed the decryption request. Call this after fhe_unwrap succeeds.",
+      args: [
+        {
+          name: "burntAmount",
+          description: "The encrypted amount handle (bytes32) from the unwrap request",
+        },
+        {
+          name: "cleartextAmount",
+          description: "The decrypted amount in raw USDC units (e.g. '1000000' for 1 USDC)",
+        },
+        {
+          name: "decryptionProof",
+          description: "The KMS decryption proof (hex string)",
+        },
+      ] as const,
+      executable: async (args, logger) => {
+        try {
+          if (!args.burntAmount || !args.cleartextAmount || !args.decryptionProof) {
+            return new ExecutableGameFunctionResponse(
+              ExecutableGameFunctionStatus.Failed,
+              "burntAmount, cleartextAmount, and decryptionProof are all required"
+            );
+          }
+
+          logger("Finalizing unwrap...");
+
+          const { token } = await self.getContracts();
+
+          const tx = await token.finalizeUnwrap(
+            args.burntAmount,
+            BigInt(args.cleartextAmount),
+            args.decryptionProof
+          );
+          const receipt = await tx.wait();
+
+          logger(`Unwrap finalized: TX ${receipt.hash}`);
+
+          return new ExecutableGameFunctionResponse(
+            ExecutableGameFunctionStatus.Done,
+            JSON.stringify({
+              action: "unwrap_finalized",
+              cleartextAmount: args.cleartextAmount,
+              txHash: receipt.hash,
+              blockNumber: receipt.blockNumber,
+            })
+          );
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return new ExecutableGameFunctionResponse(
+            ExecutableGameFunctionStatus.Failed,
+            `Finalize unwrap failed: ${msg}`
           );
         }
       },
@@ -480,6 +556,7 @@ class FhePlugin {
         this.wrapFunction,
         this.payFunction,
         this.unwrapFunction,
+        this.finalizeUnwrapFunction,
         this.balanceFunction,
         this.infoFunction,
       ],

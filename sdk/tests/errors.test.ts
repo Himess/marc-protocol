@@ -90,6 +90,5 @@ describe("FheErrorCode enum", () => {
     expect(FheErrorCode.NETWORK_ERROR).toBe("NETWORK_ERROR");
     expect(FheErrorCode.INSUFFICIENT_BALANCE).toBe("INSUFFICIENT_BALANCE");
     expect(FheErrorCode.CONTRACT_PAUSED).toBe("CONTRACT_PAUSED");
-    expect(FheErrorCode.POOL_CAP_EXCEEDED).toBe("POOL_CAP_EXCEEDED");
   });
 });

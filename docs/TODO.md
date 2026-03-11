@@ -92,14 +92,12 @@
 - [x] Contract: Fee Rounding — FHE.rem to detect remainder, round up fee by 1 to prevent dust loss
 - [x] Contract: Error Diagnostic — FHE.not for condition inversion, FHE.xor for exactly-one-error detection
 - [x] Contract: Error code expanded to bit flags (1=insufficient, 2=belowMin, 4=overLimit)
-- [x] Contract: lastPayExactlyOneError(address) → ebool view
+- [x] Contract: lastPayExactlyOneError(address) view
 - [x] Contract: spendingLimitOf(address), dailySpentOf(address) views
 - [x] Contract: Spending limit enforced in both pay() and payConfidential()
 - [x] Contract: V2.1 mirrored in ConfidentialPaymentPoolUpgradeable (__gap reduced to 40)
 - [x] Tests: 9 new V2.1 tests (4 spending limit + 2 fee rounding + 3 xor diagnostic)
-- [x] Tests: 177 total contract tests (was 168)
 - [x] SDK: PayErrorCode.OVER_SPENDING_LIMIT (4) + new ABI entries + events
-- [x] SDK: 93 SDK tests passing
 
 ## Completed (V3.0)
 
@@ -112,35 +110,59 @@
 - [x] Contract: Remove custom balanceOf, isInitialized, requestBalance, balanceSnapshotOf
 - [x] Contract: ERC-7984 fee-free confidentialTransfer (standard) vs pay() (x402 protocol fees)
 - [x] Interface: Remove OZ-inherited events/errors/functions from IConfidentialPaymentPool
-- [x] Tests: Update all 8 test files (balanceOf→confidentialBalanceOf, OZ error names)
-- [x] SDK: POOL_ABI updated for ERC-7984 (confidentialBalanceOf, confidentialTransfer, setOperator, etc.)
-- [x] SDK: Balance gateway updated (removed requestBalance, uses confidentialBalanceOf)
-- [x] Frontend: BalanceDisplay uses confidentialBalanceOf instead of isInitialized
-- [x] Frontend: Removed requestBalance decryption button (now uses ERC-7984 disclosure)
-- [x] ConfidentialPaymentPoolUpgradeable deferred (marked .deferred)
+- [x] Tests: Update all test files (balanceOf to confidentialBalanceOf, OZ error names)
+- [x] SDK: POOL_ABI updated for ERC-7984
+- [x] Frontend: BalanceDisplay uses confidentialBalanceOf
+
+## Completed (V4.0 — Token-Centric Rewrite)
+
+- [x] Contract: ConfidentialUSDC (ERC-7984 + ERC7984ERC20Wrapper + fee layer)
+- [x] Contract: X402PaymentVerifier (nonce registry with minPrice)
+- [x] Contract: Remove pool — agents hold cUSDC directly
+- [x] Contract: wrap/unwrap with fee, confidentialTransfer fee-free
+- [x] Contract: IConfidentialUSDC interface (fee + admin only, ERC-7984 inherited)
+- [x] Contract: 78 tests (ConfidentialUSDC, X402PaymentVerifier, E2E)
+- [x] SDK: tokenAddress + verifierAddress (replaces poolAddress)
+- [x] SDK: Dual-TX pattern (confidentialTransfer + recordPayment)
+- [x] SDK: Dual event verification (ConfidentialTransfer + PaymentVerified)
+- [x] SDK: 84 tests
+- [x] Virtuals plugin: 5 GameFunctions (fhe_wrap, fhe_pay, fhe_unwrap, fhe_balance, fhe_info) — 30 tests
+- [x] OpenClaw skill: 6 scripts (wrap, pay, unwrap, balance, info, _wallet) — 25 tests
+- [x] Frontend: React + Vite + fhevmjs/web (wrap/pay/unwrap UI)
+- [x] Deployed on Sepolia: ConfidentialUSDC, X402PaymentVerifier, MockUSDC (all verified)
+- [x] 217 total tests (78 contract + 84 SDK + 30 Virtuals + 25 OpenClaw)
+
+## Completed (V4.1 — Bug Fixes + minPrice)
+
+- [x] Contract: minPrice parameter added to recordPayment
+- [x] Contract: assert() replaced with if/revert
+- [x] Contract: require() + custom error syntax fixed
+- [x] Contract: _unwrapRecipients cleanup (delete in finalizeUnwrap)
+- [x] SDK: POOL_CAP_EXCEEDED dead error code removed
+- [x] Documentation: README.md rewritten for V4.0
+- [x] Documentation: PROTOCOL.md rewritten for V4.0
 
 ## In Progress
 
 - [ ] Demo video recording (5-minute walkthrough)
+- [ ] LIGHTPAPER.md update for V4.0 token-centric architecture
+- [ ] SECURITY.md update for V4.0
 
-## Planned (V3.1)
+## Planned (V5.0 — Production Polish)
 
+- [ ] ESLint v10 migration (eslint.config.js flat config)
+- [ ] Frontend overhaul (responsive design, loading states, error handling)
+- [ ] Vercel auto-deploy for frontend
+- [ ] Encrypted reputation score (threshold-based, privacy-preserving)
+- [ ] Transfer fee discussion (1-2 bps = 0.01-0.02%)
+- [ ] Gas benchmarking report
 - [ ] Professional security audit (Trail of Bits / OpenZeppelin / Quantstamp)
 - [ ] Bug bounty program (Immunefi / Code4rena)
+
+## Planned (V6.0 — Multi-Chain + Multi-Token)
+
+- [ ] Cross-chain: Zama coprocessor L2 support (Base, Arbitrum) when available
+- [ ] Multi-token factory (WETH, DAI wrapped as confidential ERC-7984)
+- [ ] Facilitator network (multiple operators, load balancing)
 - [ ] Ethereum mainnet deployment
-- [ ] Batch operations (batchPay, batchDeposit)
-
-## Planned (V2.0)
-
-- [ ] L2 deployment (Base, Arbitrum) for lower gas
-- [ ] Multi-token support (WETH, DAI)
 - [ ] Subscription payment model (recurring encrypted payments)
-- [ ] Allowance / delegate spending pattern (approve + payFrom)
-- [ ] Decentralized KMS (multi-party threshold FHE)
-
-## Planned (V2.1)
-
-- [ ] Facilitator network (multiple operators)
-- [ ] Batch payments (multiple recipients in one TX)
-- [ ] Agent fleet management (multi-wallet orchestration)
-- [ ] Governance token for treasury management

@@ -42,7 +42,7 @@ export async function run(args: Record<string, string>): Promise<string> {
     const receipt = await tx.wait();
 
     // Record payment on verifier contract
-    const verifierTx = await verifier.recordPayment(signerAddress, to, nonce);
+    const verifierTx = await verifier.recordPayment(to, nonce, rawAmount);
     const verifierReceipt = await verifierTx.wait();
 
     return ok({

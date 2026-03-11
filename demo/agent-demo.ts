@@ -30,7 +30,7 @@ const RED = "\x1b[31m";
 const MAGENTA = "\x1b[35m";
 
 const POOL_ADDRESS = "0xfF87ec6cb07D8Aa26ABc81037e353A28c7752d73";
-const USDC_ADDRESS = "0x229146B746cf3A314dee33f08b84f8EFd5F314F4";
+const USDC_ADDRESS = "0xc89e913676B034f8b38E49f7508803d1cDEC9F4f";
 const GATEWAY_URL = "https://gateway.sepolia.zama.ai";
 
 const USDC_ABI = [

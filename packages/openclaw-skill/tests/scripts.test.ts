@@ -9,9 +9,11 @@ vi.mock("fhe-x402-sdk", () => ({
     "function wrap(address to, uint256 amount) external",
     "function unwrap(address from, address to, externalEuint64 encryptedAmount, bytes calldata inputProof) external",
     "function confidentialTransfer(address to, externalEuint64 encryptedAmount, bytes calldata inputProof) external",
+    "function confidentialBalanceOf(address account) external view returns (bytes32)",
+    "function finalizeUnwrap(bytes32 burntAmount, uint64 cleartextAmount, bytes calldata decryptionProof) external",
   ],
   VERIFIER_ABI: [
-    "function recordPayment(address from, address to, bytes32 nonce) external",
+    "function recordPayment(address server, bytes32 nonce, uint64 minPrice) external",
   ],
 }));
 
@@ -40,9 +42,11 @@ const mockConfidentialTransfer = vi.fn();
 const mockRecordPayment = vi.fn();
 const mockApprove = vi.fn();
 const mockBalanceOf = vi.fn().mockResolvedValue(10_000_000n);
+const mockConfidentialBalanceOf = vi.fn().mockResolvedValue("0x" + "00".repeat(32));
+const mockFinalizeUnwrap = vi.fn();
 const mockGetAddress = vi.fn().mockResolvedValue("0x1234567890abcdef1234567890abcdef12345678");
 const mockGetBalance = vi.fn().mockResolvedValue(1_000_000_000_000_000n);
-const mockGetTokenAddress = vi.fn().mockResolvedValue("0xNEW_TOKEN_ADDRESS");
+const mockGetTokenAddress = vi.fn().mockResolvedValue("0x3864B98D1B1EC2109C679679052e2844b4153889");
 
 vi.mock("ethers", async () => {
   const actual = await vi.importActual("ethers");
@@ -63,6 +67,8 @@ vi.mock("ethers", async () => {
           wrap: mockWrap,
           confidentialTransfer: mockConfidentialTransfer,
           unwrap: mockUnwrap,
+          confidentialBalanceOf: mockConfidentialBalanceOf,
+          finalizeUnwrap: mockFinalizeUnwrap,
           getAddress: mockGetTokenAddress,
         };
       }
@@ -90,6 +96,7 @@ import { run as runBalance } from "../scripts/balance.js";
 import { run as runWrap } from "../scripts/wrap.js";
 import { run as runPay } from "../scripts/pay.js";
 import { run as runUnwrap } from "../scripts/unwrap.js";
+import { run as runFinalizeUnwrap } from "../scripts/finalizeUnwrap.js";
 import { run as runInfo } from "../scripts/info.js";
 
 // ---------------------------------------------------------------------------
@@ -102,7 +109,9 @@ describe("balance script", () => {
     mockBalanceOf.mockResolvedValue(5_000_000n);
   });
 
-  it("returns balance", async () => {
+  it("returns balance with no encrypted cUSDC", async () => {
+    mockConfidentialBalanceOf.mockResolvedValue("0x" + "00".repeat(32));
+
     const raw = await runBalance();
     const data = JSON.parse(raw);
 
@@ -110,7 +119,22 @@ describe("balance script", () => {
     expect(data.action).toBe("balance");
     expect(data.publicBalanceUSDC).toBe("5.00");
     expect(data.walletAddress).toBe("0x1234567890abcdef1234567890abcdef12345678");
-    expect(data.isInitialized).toBeUndefined();
+    expect(data.hasEncryptedBalance).toBe(false);
+    expect(data.note).toContain("No encrypted cUSDC balance detected");
+  });
+
+  it("returns balance with encrypted cUSDC handle", async () => {
+    mockConfidentialBalanceOf.mockResolvedValue("0x" + "ab".repeat(32));
+
+    const raw = await runBalance();
+    const data = JSON.parse(raw);
+
+    expect(data.ok).toBe(true);
+    expect(data.action).toBe("balance");
+    expect(data.publicBalanceUSDC).toBe("5.00");
+    expect(data.hasEncryptedBalance).toBe(true);
+    expect(data.encryptedBalanceHandle).toBe("0x" + "ab".repeat(32));
+    expect(data.note).toContain("Exact amount requires KMS decryption");
   });
 
   it("handles zero balance", async () => {
@@ -254,9 +278,9 @@ describe("pay script", () => {
     );
     // Verify verifier.recordPayment was called
     expect(mockRecordPayment).toHaveBeenCalledWith(
-      "0x1234567890abcdef1234567890abcdef12345678",
-      "0x1234567890abcdef1234567890abcdef12345678",
-      expect.any(String) // nonce
+      "0x1234567890abcdef1234567890abcdef12345678", // server (to)
+      expect.any(String), // nonce
+      1_000_000n // minPrice
     );
   });
 
@@ -407,6 +431,89 @@ describe("unwrap script", () => {
 
     expect(data.ok).toBe(false);
     expect(data.error).toContain("Insufficient cUSDC balance");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FinalizeUnwrap Tests (step 2 of unwrap)
+// ---------------------------------------------------------------------------
+
+describe("finalizeUnwrap script", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFinalizeUnwrap.mockResolvedValue({
+      wait: vi.fn().mockResolvedValue({
+        hash: "0xfinalize123",
+        blockNumber: 12349,
+      }),
+    });
+  });
+
+  it("finalizes unwrap successfully", async () => {
+    const raw = await runFinalizeUnwrap({
+      burntAmount: "0x" + "aa".repeat(32),
+      cleartextAmount: "1000000",
+      decryptionProof: "0x" + "bb".repeat(64),
+    });
+    const data = JSON.parse(raw);
+
+    expect(data.ok).toBe(true);
+    expect(data.action).toBe("unwrap_finalized");
+    expect(data.cleartextAmount).toBe("1000000");
+    expect(data.txHash).toBe("0xfinalize123");
+    expect(data.blockNumber).toBe(12349);
+    expect(mockFinalizeUnwrap).toHaveBeenCalledWith(
+      "0x" + "aa".repeat(32),
+      1_000_000n,
+      "0x" + "bb".repeat(64)
+    );
+  });
+
+  it("fails when burntAmount is missing", async () => {
+    const raw = await runFinalizeUnwrap({
+      cleartextAmount: "1000000",
+      decryptionProof: "0xproof",
+    });
+    const data = JSON.parse(raw);
+
+    expect(data.ok).toBe(false);
+    expect(data.error).toContain("required");
+  });
+
+  it("fails when cleartextAmount is missing", async () => {
+    const raw = await runFinalizeUnwrap({
+      burntAmount: "0xburnt",
+      decryptionProof: "0xproof",
+    });
+    const data = JSON.parse(raw);
+
+    expect(data.ok).toBe(false);
+    expect(data.error).toContain("required");
+  });
+
+  it("fails when decryptionProof is missing", async () => {
+    const raw = await runFinalizeUnwrap({
+      burntAmount: "0xburnt",
+      cleartextAmount: "1000000",
+    });
+    const data = JSON.parse(raw);
+
+    expect(data.ok).toBe(false);
+    expect(data.error).toContain("required");
+  });
+
+  it("handles finalize error gracefully", async () => {
+    mockFinalizeUnwrap.mockRejectedValueOnce(new Error("Decryption proof invalid"));
+
+    const raw = await runFinalizeUnwrap({
+      burntAmount: "0x" + "aa".repeat(32),
+      cleartextAmount: "1000000",
+      decryptionProof: "0x" + "bb".repeat(64),
+    });
+    const data = JSON.parse(raw);
+
+    expect(data.ok).toBe(false);
+    expect(data.error).toContain("Decryption proof invalid");
   });
 });
 

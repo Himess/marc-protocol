@@ -513,6 +513,145 @@ describe("ConfidentialUSDC", function () {
   });
 
   // =========================================================================
+  // SafeCast overflow protection
+  // =========================================================================
+
+  describe("SafeCast overflow", function () {
+    it("wrap reverts on amount exceeding uint64 max", async function () {
+      // 2^64 = 18446744073709551616
+      const overflowAmount = 2n ** 64n;
+      await usdc.mint(alice.address, overflowAmount);
+      await usdc.connect(alice).approve(await token.getAddress(), overflowAmount);
+
+      await expect(
+        token.connect(alice).wrap(alice.address, overflowAmount)
+      ).to.be.revertedWithCustomError(token, "SafeCastOverflowedUintDowncast");
+    });
+  });
+
+  // =========================================================================
+  // M-1: finalizeUnwrap respects pause
+  // =========================================================================
+
+  describe("finalizeUnwrap pause", function () {
+    it("finalizeUnwrap is blocked when paused", async function () {
+      await token.connect(owner).pause();
+      const fakeHandle = ethers.zeroPadValue("0x01", 32);
+      await expect(
+        token.finalizeUnwrap(fakeHandle, 1000000n, "0x")
+      ).to.be.revertedWithCustomError(token, "EnforcedPause");
+    });
+  });
+
+  // =========================================================================
+  // L-1: Dust amount protection
+  // =========================================================================
+
+  describe("Dust amount protection", function () {
+    it("wrap reverts when amount equals MIN_PROTOCOL_FEE (net would be 0)", async function () {
+      const dustAmount = MIN_FEE; // 10_000 (0.01 USDC)
+      await usdc.mint(alice.address, dustAmount);
+      await usdc.connect(alice).approve(await token.getAddress(), dustAmount);
+      await expect(
+        token.connect(alice).wrap(alice.address, dustAmount)
+      ).to.be.revertedWithCustomError(token, "DustAmount");
+    });
+
+    it("wrap reverts when amount less than MIN_PROTOCOL_FEE", async function () {
+      const tinyAmount = 5000n; // 0.005 USDC
+      await usdc.mint(alice.address, tinyAmount);
+      await usdc.connect(alice).approve(await token.getAddress(), tinyAmount);
+      await expect(
+        token.connect(alice).wrap(alice.address, tinyAmount)
+      ).to.be.revertedWithCustomError(token, "DustAmount");
+    });
+
+    it("wrap succeeds when amount is MIN_PROTOCOL_FEE + 1", async function () {
+      const minValid = MIN_FEE + 1n; // 10_001
+      await usdc.mint(alice.address, minValid);
+      await usdc.connect(alice).approve(await token.getAddress(), minValid);
+      await expect(
+        token.connect(alice).wrap(alice.address, minValid)
+      ).to.not.be.reverted;
+    });
+  });
+
+  // =========================================================================
+  // L-5: Constructor emits TreasuryUpdated
+  // =========================================================================
+
+  describe("Constructor event", function () {
+    it("emits TreasuryUpdated on deployment", async function () {
+      const Token = await ethers.getContractFactory("ConfidentialUSDC");
+      const newToken = await Token.deploy(await usdc.getAddress(), treasury.address);
+      const tx = newToken.deploymentTransaction();
+      await expect(tx)
+        .to.emit(newToken, "TreasuryUpdated")
+        .withArgs(ethers.ZeroAddress, treasury.address);
+    });
+  });
+
+  // =========================================================================
+  // ERC-7984 Operator Authorization
+  // =========================================================================
+
+  describe("ERC-7984 Operator", function () {
+    it("setOperator grants operator role", async function () {
+      // type(uint48).max = 2^48 - 1 = 281474976710655
+      const maxExpiry = 281474976710655n;
+      await token.connect(alice).setOperator(bob.address, maxExpiry);
+      expect(await token.isOperator(alice.address, bob.address)).to.equal(true);
+    });
+
+    it("isOperator returns true after setting operator", async function () {
+      const maxExpiry = 281474976710655n;
+      await token.connect(alice).setOperator(bob.address, maxExpiry);
+      expect(await token.isOperator(alice.address, bob.address)).to.equal(true);
+    });
+
+    it("isOperator returns true for self (holder == spender)", async function () {
+      // No setOperator call needed — holder is always their own operator
+      expect(await token.isOperator(alice.address, alice.address)).to.equal(true);
+    });
+
+    it("isOperator returns false for unauthorized address", async function () {
+      expect(await token.isOperator(alice.address, bob.address)).to.equal(false);
+    });
+
+    it("operator can be removed by setting expiry to 0", async function () {
+      const maxExpiry = 281474976710655n;
+      await token.connect(alice).setOperator(bob.address, maxExpiry);
+      expect(await token.isOperator(alice.address, bob.address)).to.equal(true);
+
+      // Remove operator by setting expiry to 0 (block.timestamp > 0 always)
+      await token.connect(alice).setOperator(bob.address, 0);
+      expect(await token.isOperator(alice.address, bob.address)).to.equal(false);
+    });
+
+    it("operator expires when block timestamp exceeds expiry", async function () {
+      // Set operator with expiry = 1 (Unix timestamp 1 — already in the past)
+      await token.connect(alice).setOperator(bob.address, 1);
+      // block.timestamp is always well beyond 1, so operator should be expired
+      expect(await token.isOperator(alice.address, bob.address)).to.equal(false);
+    });
+
+    it("emits OperatorSet event", async function () {
+      const maxExpiry = 281474976710655n;
+      await expect(token.connect(alice).setOperator(bob.address, maxExpiry))
+        .to.emit(token, "OperatorSet")
+        .withArgs(alice.address, bob.address, maxExpiry);
+    });
+
+    it("multiple operators can be set for same holder", async function () {
+      const maxExpiry = 281474976710655n;
+      await token.connect(alice).setOperator(bob.address, maxExpiry);
+      await token.connect(alice).setOperator(other.address, maxExpiry);
+      expect(await token.isOperator(alice.address, bob.address)).to.equal(true);
+      expect(await token.isOperator(alice.address, other.address)).to.equal(true);
+    });
+  });
+
+  // =========================================================================
   // ERC7984ERC20Wrapper view functions
   // =========================================================================
 

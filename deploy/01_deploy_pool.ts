@@ -38,10 +38,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   console.log(`ConfidentialUSDC deployed at: ${token.address}`);
 
   // Deploy X402PaymentVerifier (nonce registry)
+  // V4.3: constructor takes trustedToken address
   console.log("Deploying X402PaymentVerifier...");
   const verifier = await deploy("X402PaymentVerifier", {
     from: deployer,
-    args: [],
+    args: [token.address],
     log: true,
   });
   console.log(`X402PaymentVerifier deployed at: ${verifier.address}`);

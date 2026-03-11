@@ -10,6 +10,8 @@ const mockBalanceOf = vi.fn().mockResolvedValue(5_000_000n);
 const mockWrap = vi.fn();
 const mockConfidentialTransfer = vi.fn();
 const mockUnwrap = vi.fn();
+const mockFinalizeUnwrap = vi.fn();
+const mockConfidentialBalanceOf = vi.fn();
 const mockRecordPayment = vi.fn();
 const mockGetAddress = vi.fn().mockResolvedValue("0x1234567890abcdef1234567890abcdef12345678");
 
@@ -26,6 +28,8 @@ vi.mock("ethers", () => ({
         wrap: mockWrap,
         confidentialTransfer: mockConfidentialTransfer,
         unwrap: mockUnwrap,
+        finalizeUnwrap: mockFinalizeUnwrap,
+        confidentialBalanceOf: mockConfidentialBalanceOf,
       };
     }
     if (abiStr.includes("recordPayment")) {
@@ -53,7 +57,7 @@ vi.mock("fhe-x402-sdk", () => ({
     "function unwrap(address from, address to, externalEuint64 encryptedAmount, bytes calldata inputProof) external",
   ],
   VERIFIER_ABI: [
-    "function recordPayment(address payer, address server, bytes32 nonce) external",
+    "function recordPayment(address server, bytes32 nonce, uint64 minPrice) external",
   ],
 }));
 
@@ -312,11 +316,11 @@ describe("fhe_pay", () => {
       "0x" + "ff".repeat(32), // encrypted handle from fhevmjs
       "0x" + "ee".repeat(64)  // input proof from fhevmjs
     );
-    // Verify verifier.recordPayment was called
+    // Verify verifier.recordPayment was called (3 params: server, nonce, minPrice)
     expect(mockRecordPayment).toHaveBeenCalledWith(
-      "0x1234567890abcdef1234567890abcdef12345678", // payer (signer)
       "0x1234567890abcdef1234567890abcdef12345678", // server (to)
-      expect.any(String) // nonce
+      expect.any(String), // nonce
+      1_000_000n // minPrice (rawAmount for 1 USDC)
     );
   });
 
@@ -475,9 +479,10 @@ describe("fhe_balance", () => {
     vi.clearAllMocks();
     plugin = createPlugin();
     mockBalanceOf.mockResolvedValue(5_000_000n);
+    mockConfidentialBalanceOf.mockResolvedValue("0x" + "aa".repeat(32));
   });
 
-  it("returns public USDC balance", async () => {
+  it("returns public USDC balance and encrypted balance handle", async () => {
     const fn = plugin.balanceFunction;
     const result = await fn.executable({} as any, noopLogger);
 
@@ -486,8 +491,34 @@ describe("fhe_balance", () => {
     expect(data.action).toBe("balance");
     expect(data.publicBalanceUSDC).toBe("5.00");
     expect(data.walletAddress).toBe("0x1234567890abcdef1234567890abcdef12345678");
-    expect(data.note).toContain("cUSDC");
+    expect(data.encryptedBalanceHandle).toBe("0x" + "aa".repeat(32));
+    expect(data.hasEncryptedBalance).toBe(true);
     expect(data.note).toContain("KMS");
+  });
+
+  it("shows hasEncryptedBalance false when handle is zero", async () => {
+    mockConfidentialBalanceOf.mockResolvedValue("0x" + "00".repeat(32));
+
+    const fn = plugin.balanceFunction;
+    const result = await fn.executable({} as any, noopLogger);
+
+    expect(result.status).toBe(ExecutableGameFunctionStatus.Done);
+    const data = JSON.parse(result.feedback);
+    expect(data.hasEncryptedBalance).toBe(false);
+    expect(data.encryptedBalanceHandle).toBe("0x" + "00".repeat(32));
+  });
+
+  it("handles confidentialBalanceOf failure gracefully", async () => {
+    mockConfidentialBalanceOf.mockRejectedValue(new Error("not available"));
+
+    const fn = plugin.balanceFunction;
+    const result = await fn.executable({} as any, noopLogger);
+
+    expect(result.status).toBe(ExecutableGameFunctionStatus.Done);
+    const data = JSON.parse(result.feedback);
+    expect(data.publicBalanceUSDC).toBe("5.00");
+    expect(data.hasEncryptedBalance).toBe(false);
+    expect(data.encryptedBalanceHandle).toBe("0x" + "00".repeat(32));
   });
 
   it("handles zero balance", async () => {
@@ -509,6 +540,99 @@ describe("fhe_balance", () => {
 
     expect(result.status).toBe(ExecutableGameFunctionStatus.Failed);
     expect(result.feedback).toContain("RPC timeout");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Finalize Unwrap Tests
+// ---------------------------------------------------------------------------
+
+describe("fhe_finalize_unwrap", () => {
+  let plugin: FhePlugin;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    plugin = createPlugin();
+    mockFinalizeUnwrap.mockResolvedValue({
+      wait: vi.fn().mockResolvedValue({
+        hash: "0xfinalize123",
+        blockNumber: 12349,
+      }),
+    });
+  });
+
+  it("finalizes unwrap successfully", async () => {
+    const fn = plugin.finalizeUnwrapFunction;
+    const result = await fn.executable(
+      {
+        burntAmount: "0x" + "ab".repeat(32),
+        cleartextAmount: "1000000",
+        decryptionProof: "0x" + "cd".repeat(64),
+      } as any,
+      noopLogger
+    );
+
+    expect(result.status).toBe(ExecutableGameFunctionStatus.Done);
+    const data = JSON.parse(result.feedback);
+    expect(data.action).toBe("unwrap_finalized");
+    expect(data.cleartextAmount).toBe("1000000");
+    expect(data.txHash).toBe("0xfinalize123");
+    expect(data.blockNumber).toBe(12349);
+    expect(mockFinalizeUnwrap).toHaveBeenCalledWith(
+      "0x" + "ab".repeat(32),
+      1_000_000n,
+      "0x" + "cd".repeat(64)
+    );
+  });
+
+  it("fails when burntAmount is missing", async () => {
+    const fn = plugin.finalizeUnwrapFunction;
+    const result = await fn.executable(
+      { burntAmount: undefined, cleartextAmount: "1000000", decryptionProof: "0xaa" } as any,
+      noopLogger
+    );
+
+    expect(result.status).toBe(ExecutableGameFunctionStatus.Failed);
+    expect(result.feedback).toContain("required");
+  });
+
+  it("fails when cleartextAmount is missing", async () => {
+    const fn = plugin.finalizeUnwrapFunction;
+    const result = await fn.executable(
+      { burntAmount: "0xaa", cleartextAmount: undefined, decryptionProof: "0xbb" } as any,
+      noopLogger
+    );
+
+    expect(result.status).toBe(ExecutableGameFunctionStatus.Failed);
+    expect(result.feedback).toContain("required");
+  });
+
+  it("fails when decryptionProof is missing", async () => {
+    const fn = plugin.finalizeUnwrapFunction;
+    const result = await fn.executable(
+      { burntAmount: "0xaa", cleartextAmount: "1000000", decryptionProof: undefined } as any,
+      noopLogger
+    );
+
+    expect(result.status).toBe(ExecutableGameFunctionStatus.Failed);
+    expect(result.feedback).toContain("required");
+  });
+
+  it("handles finalize error gracefully", async () => {
+    mockFinalizeUnwrap.mockRejectedValue(new Error("KMS decryption not ready"));
+
+    const fn = plugin.finalizeUnwrapFunction;
+    const result = await fn.executable(
+      {
+        burntAmount: "0x" + "ab".repeat(32),
+        cleartextAmount: "1000000",
+        decryptionProof: "0x" + "cd".repeat(64),
+      } as any,
+      noopLogger
+    );
+
+    expect(result.status).toBe(ExecutableGameFunctionStatus.Failed);
+    expect(result.feedback).toContain("KMS decryption not ready");
   });
 });
 
@@ -538,14 +662,14 @@ describe("fhe_info", () => {
 // ---------------------------------------------------------------------------
 
 describe("getWorker", () => {
-  it("returns a GameWorker with all 5 functions", () => {
+  it("returns a GameWorker with all 6 functions", () => {
     const plugin = createPlugin();
     const worker = plugin.getWorker();
 
     expect(worker).toBeDefined();
     expect(worker.id).toBe("fhe_x402_worker");
     expect(worker.name).toBe("FHE x402 Payment Worker");
-    expect(worker.functions).toHaveLength(5);
+    expect(worker.functions).toHaveLength(6);
   });
 
   it("allows custom functions override", () => {

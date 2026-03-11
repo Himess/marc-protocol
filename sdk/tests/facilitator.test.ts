@@ -192,8 +192,18 @@ describe("/verify endpoint", () => {
     expect(res.json.mock.calls[0][0].error).toContain("Unsupported scheme");
   });
 
+  it("rejects missing network field", async () => {
+    const req = { body: { scheme: "fhe-confidential-v1", payload: { txHash: "0xabc" } } };
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+
+    await verifyHandler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json.mock.calls[0][0].error).toContain("Missing network field");
+  });
+
   it("rejects missing payload", async () => {
-    const req = { body: { scheme: "fhe-confidential-v1" } };
+    const req = { body: { scheme: "fhe-confidential-v1", network: "eip155:11155111" } };
     const res = { status: vi.fn().mockReturnThis(), json: vi.fn() };
 
     await verifyHandler(req, res);
@@ -208,6 +218,7 @@ describe("/verify endpoint", () => {
     const req = {
       body: {
         scheme: "fhe-confidential-v1",
+        network: "eip155:11155111",
         payload: { txHash: "0xabc123" },
       },
     };
@@ -230,6 +241,7 @@ describe("/verify endpoint", () => {
     const req = {
       body: {
         scheme: "fhe-confidential-v1",
+        network: "eip155:11155111",
         payload: { txHash: "0xabc123" },
       },
     };
@@ -257,6 +269,7 @@ describe("/verify endpoint", () => {
     const req = {
       body: {
         scheme: "fhe-confidential-v1",
+        network: "eip155:11155111",
         payload: { txHash: "0xabc123" },
       },
     };
