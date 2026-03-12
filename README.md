@@ -1,6 +1,6 @@
 # MARC Protocol — Modular Agent-Ready Confidential Protocol
 
-![Tests](https://img.shields.io/badge/tests-601+-brightgreen)
+![Tests](https://img.shields.io/badge/tests-800+-brightgreen)
 ![License](https://img.shields.io/badge/license-BUSL--1.1-blue)
 ![Chain](https://img.shields.io/badge/chain-Ethereum%20Sepolia-purple)
 ![SDK](https://img.shields.io/badge/npm-marc--protocol--sdk-red)
@@ -9,11 +9,11 @@
 
 MARC Protocol is a privacy-preserving payment infrastructure for AI agents. Built on **Zama's fhEVM** and the **x402 payment standard**, it uses Fully Homomorphic Encryption to hide payment amounts on-chain while keeping sender and recipient addresses public (as required by x402).
 
-**Scheme:** `fhe-confidential-v1` | **Chain:** Ethereum Sepolia (11155111) | **Tests:** 601+ (241 contract + 173 SDK + 37 Virtuals + 31 OpenClaw + 8 FHE transfer + 55 Sepolia on-chain + 46 integration)
+**Scheme:** `fhe-confidential-v1` | **Chain:** Ethereum Sepolia (11155111) | **Tests:** 800+ (305 contract + 328 Sepolia on-chain + 173 SDK + 37 Virtuals + 31 OpenClaw)
 
 ### Why MARC?
 
-AI agents are already transacting at scale — **122M+ x402 transactions, $600M+ volume** (Dune Analytics, Q1 2026). But every payment amount, every balance, every transaction outcome is **publicly visible on-chain**. Competitors can see your API spend, your pricing strategy, your customer base.
+AI agents are already transacting at scale — **$166M+ x402 volume across chains** (Dune Analytics, Q1 2026). But every payment amount, every balance, every transaction outcome is **publicly visible on-chain**. Competitors can see your API spend, your pricing strategy, your customer base.
 
 MARC Protocol encrypts what matters: **amounts and balances are FHE-encrypted**, while participants remain public for x402 compliance.
 
@@ -393,7 +393,7 @@ See `examples/eliza-plugin/` for a complete ElizaOS integration example with 3 a
 ## Project Structure
 
 ```
-fhe-x402/
+marc-protocol/
 ├── contracts/
 │   ├── ConfidentialUSDC.sol          # ERC-7984 token (wrap/transfer/unwrap + fees)
 │   ├── X402PaymentVerifier.sol       # Nonce registry (recordPayment + minPrice)
@@ -484,7 +484,7 @@ Agent creates job → funds locked in escrow → work delivered → evaluator ap
 | **2027** | Multi-Chain | $1M | $3M | $300K | **$4.3M** |
 | **2028+** | Mainstream | $5M | $15M | $1M | **$21M** |
 
-Key insight: **every new chain Zama deploys to multiplies MARC's addressable market.** Current x402 volume is $600M+ with 500% YoY growth. MARC needs just 2-5% adoption for meaningful revenue.
+Key insight: **every new chain Zama deploys to multiplies MARC's addressable market.** Current x402 volume is $166M+ and growing. MARC needs just 2-5% adoption for meaningful revenue.
 
 See [docs/REVENUE-PROJECTIONS.md](docs/REVENUE-PROJECTIONS.md) for detailed projections, sensitivity analysis, and market context.
 

@@ -466,7 +466,7 @@ async function main() {
   console.log(`${CYAN}${BOLD}║  ${GREEN}All ${txResults.length} transactions completed successfully.${CYAN}             ║${RESET}`);
   console.log(`${CYAN}${BOLD}║  Protocol: MARC (Modular Agent-Ready Confidential)       ║${RESET}`);
   console.log(`${CYAN}${BOLD}║  Standards: ERC-7984 + ERC-8004 + ERC-8183 + x402        ║${RESET}`);
-  console.log(`${CYAN}${BOLD}║  github.com/Himess/fhe-x402                              ║${RESET}`);
+  console.log(`${CYAN}${BOLD}║  github.com/Himess/marc-protocol                         ║${RESET}`);
   console.log(`${CYAN}${BOLD}╚══════════════════════════════════════════════════════════╝${RESET}`);
   console.log("");
 }

@@ -297,114 +297,149 @@ pendingBatchNonces.add(payload.nonce);
 
 ---
 
-### PART 1: SLIDES (0:00 — 1:15)
+### PART 1: SLIDES (0:00 — 1:35)
 
-#### Slide 1 — Title (0:00-0:08) — 8 sec
-> "MARC Protocol — Modular Agent-Ready Confidential Protocol.
-> AI agents pay for APIs with FHE-encrypted amounts. Nobody sees how much.
-> 601+ tests. 4 ERC standards. Live on Sepolia."
-
-**[Arrow Right]**
-
-#### Slide 2 — Problem (0:08-0:18) — 10 sec
-> "The problem: every payment an AI agent makes is completely transparent on-chain.
-> Competitors can see your spending, reverse-engineer your strategy.
-> With 122 million x402 transactions and growing — privacy is the missing layer."
-
-**[Arrow Right]**
-
-#### Slide 3 — Solution (0:18-0:26) — 8 sec
-> "MARC wraps USDC into encrypted cUSDC using Zama's FHE.
-> Agent requests API, gets 402, encrypts amount, pays with cUSDC — 1-2 seconds.
-> Amounts encrypted, addresses visible — compliance-friendly."
-
-**[Arrow Right]**
-
-#### Slide 4 — Architecture (0:26-0:36) — 10 sec
-> "Four ERC standards, one protocol.
-> ERC-7984 for the confidential token.
-> x402 for agent payments.
-> ERC-8004 for agent identity and reputation.
-> ERC-8183 for job escrow with 1% platform fee."
-
-**[Arrow Right]**
-
-#### Slide 5 — Built & Shipped (0:36-0:44) — 8 sec
-> "This isn't a concept. 601+ tests passing. 6 contracts deployed on Sepolia.
-> 8 real FHE tests against Zama's coprocessor.
-> Deep audit — score 9 out of 10. npm published as marc-protocol-sdk."
-
-**[Arrow Right]**
-
-#### Slide 6 — Integration (0:44-0:54) — 10 sec
-> "Works with every agent framework. Virtuals GAME, OpenClaw, ElizaOS — all integrated.
-> Server-side: one line — fhePaywall with your price.
-> Client-side: fheFetch handles 402 automatically.
-> npm install marc-protocol-sdk — that's it."
-
-**[Arrow Right]**
-
-#### Slide 7 — Revenue (0:54-1:00) — 6 sec
-> "Three revenue streams: wrap/unwrap fee — live today. ERC-8183 job escrow — 1% on completion.
-> Facilitator SaaS for the future. Revenue model actively evolving."
-
-**[Arrow Right → Arrow Right]** (Skip Slide 8 Market — too dense for video)
-
-#### Slide 9 — Why Zama (1:00-1:06) — 6 sec
-> "More MARC usage means more FHE operations, more Zama coprocessor demand.
-> We're ERC-7984 native — Zama's own standard, full v0.10 API, zero deprecated APIs."
-
-**[Arrow Right]**
-
-#### Slide 10 — Roadmap (1:06-1:15) — 9 sec
-> "Now: Sepolia with 6 contracts — live infrastructure for x402 payments.
-> With ERC-8183, we're evolving into a complete agentic commerce protocol — jobs, escrow, settlement, all with FHE.
-> Next: Ethereum mainnet. Future: every chain Zama reaches — Base, Solana, and beyond."
-
-**[Arrow Right]**
-
-#### Slide 11 — Closing (1:15-1:20) — 5 sec
-> "We're going to mainnet. Infrastructure today, full protocol tomorrow.
-> As Zama expands to new chains, MARC follows. Let's build the privacy layer for agent commerce — together."
+*Not: Doğal konuş, slogan okuma. Slayttaki bilgiyi tekrar etme — slaytı GÖRÜYORlar zaten. Sen hikaye anlat, teknik derinlik göster.*
 
 ---
 
-### PART 2: TERMINAL DEMO (1:20 — 1:50)
+#### Slide 1 — Title (0:00-0:10) — ~10 sec
+
+*(Türkçe not: Kendini tanıt, projeyi tek cümlede özetle, canlı olduğunu söyle)*
+
+> "Hey — this is MARC Protocol. It's a privacy infrastructure for AI agent payments, built entirely on Zama's fhEVM coprocessor. Six contracts deployed on Sepolia, 800+ tests passing, SDK published on npm. Everything you're about to see is live and working."
+
+**[Arrow Right]**
+
+---
+
+#### Slide 2 — Problem (0:10-0:22) — ~12 sec
+
+*(Türkçe not: Problemi somutlaştır — "rakip senin harcamanı görüyor, stratejini çözüyor")*
+
+> "So here's the core problem. Today, when an AI agent pays for an API on-chain, that transaction is fully transparent. Any competitor can see exactly how much you're spending and reverse-engineer your strategy — your budget, your data sources, everything. The x402 payment standard already has 166 million dollars in volume and it's growing fast — but there's no privacy layer. Every payment is an open book."
+
+**[Arrow Right]**
+
+---
+
+#### Slide 3 — Solution (0:22-0:34) — ~12 sec
+
+*(Türkçe not: Teknik akışı anlat — wrap → encrypt → pay. ZK'dan farkı: mixer yok, sadece tutar gizli)*
+
+> "What MARC does is straightforward. You wrap your USDC into an encrypted token — cUSDC — using Zama's FHE coprocessor. When your agent hits a 402 paywall, it encrypts the payment amount client-side, sends the ciphertext on-chain, and the contract transfers encrypted tokens. The amount never appears in plaintext. But here's the key difference from mixers and ZK solutions — addresses stay fully visible. So you get amount privacy without breaking compliance."
+
+**[Arrow Right]**
+
+---
+
+#### Slide 4 — Architecture (0:34-0:46) — ~12 sec
+
+*(Türkçe not: Her ERC'nin NE İŞE yaradığını açıkla, sadece isim sayma)*
+
+> "Under the hood, we integrate four ERC standards and each one handles a specific layer. ERC-7984 — that's Zama's own confidential token standard — powers the encrypted cUSDC. x402 is the HTTP payment protocol that tells agents how to pay. ERC-8004 gives agents on-chain identity and reputation scoring. And ERC-8183 — this is the big one — it adds full job escrow. Agents can post jobs, fund them with encrypted tokens, and settle on completion. That's where MARC goes from infrastructure to a full commerce protocol."
+
+**[Arrow Right]**
+
+---
+
+#### Slide 5 — Built & Shipped (0:46-0:56) — ~10 sec
+
+*(Türkçe not: Rakamları doğal söyle, "bu kağıt üstünde değil" mesajı ver)*
+
+> "I want to be clear — this isn't a whitepaper or a concept. Everything is built, tested, and deployed. 800+ tests, including 8 real FHE tests running against Zama's actual coprocessor on Sepolia — not mocks. We did a full security audit, found 29 issues, fixed all of them, brought the score from 7.2 to 9 out of 10. The SDK is on npm right now — you can install it today."
+
+**[Arrow Right]**
+
+---
+
+#### Slide 6 — Integration (0:56-1:06) — ~10 sec
+
+*(Türkçe not: Developer deneyimini göster — "tek satır" mesajı, framework pluginleri)*
+
+> "We designed integration to be as minimal as possible. On the server side, you add one line — fhePaywall with your price — and any request without a valid encrypted payment gets a 402 response. On the client side, fheFetch handles that 402 automatically — encrypts, pays, retries. And we built ready-made plugins for Virtuals GAME, OpenClaw, and ElizaOS. So if you're already building agents with any of those frameworks, it just plugs in."
+
+**[Arrow Right]**
+
+---
+
+#### Slide 7 — Revenue (1:06-1:12) — ~6 sec
+
+*(Türkçe not: Kısa tut — iki gelir kaynağı, ikisi de on-chain)*
+
+> "Revenue comes from two places. A small fee on wrap and unwrap — that's live today. And a 1% escrow fee on ERC-8183 job completions. Both are on-chain and automatic — they scale with volume."
+
+**[Arrow Right]**
+
+---
+
+#### Slide 8 — Market (1:12-1:18) — ~6 sec
+
+*(Türkçe not: Pazar büyüklüğünü söyle, multi-chain vizyonu vurgula)*
+
+> "x402 is already at 166 million in volume across chains. And wherever Zama deploys its coprocessor — Base, Arbitrum, eventually Solana — MARC follows. Our addressable market grows with every new chain Zama supports."
+
+**[Arrow Right]**
+
+---
+
+#### Slide 9 — Why Zama (1:18-1:24) — ~6 sec
+
+*(Türkçe not: Zama için neden iyi olduğumuzu anlat — flywheel efekti)*
+
+> "And this creates a flywheel for Zama. More agents using MARC means more FHE operations, which drives more coprocessor demand. We're native on Zama's v0.10 API and ERC-7984 — no deprecated libraries, no compatibility layers."
+
+**[Arrow Right]**
+
+---
+
+#### Slide 10 — Roadmap (1:24-1:32) — ~8 sec
+
+*(Türkçe not: Bugün infrastructure, yarın full protocol — ERC-8183 ile evriliyoruz)*
+
+> "Right now we're live as payment infrastructure — handling encrypted transfers, nonce verification, batch prepayments. With ERC-8183, we're evolving into a complete protocol where agents autonomously create jobs, escrow funds, and settle — all with FHE privacy. Next stop: Ethereum mainnet. After that, every chain Zama reaches."
+
+**[Arrow Right]**
+
+---
+
+#### Slide 11 — Closing (1:32-1:36) — ~4 sec
+
+*(Türkçe not: Kısa ve güçlü kapat)*
+
+> "Infrastructure today, full protocol tomorrow. Let's build this together."
+
+---
+
+### PART 2: TERMINAL DEMO (1:36 — 2:00)
 
 #### Terminal hazirlik: 2 terminal acik olsun, fontlar buyuk (20px+)
 
-#### Demo 1: Agent Lifecycle (1:20-1:35) — 15 sec
+#### Demo 1: Agent Lifecycle (1:36-1:48) — ~12 sec
 
 **Once calistir, output'u goster. Konusma:**
 
-> "Here's the agent lifecycle demo running on real Sepolia.
-> Agent registers identity — ERC-8004.
-> Wraps USDC into encrypted cUSDC.
-> Makes an FHE-encrypted transfer — nobody sees the amount.
-> Records payment nonce. Leaves reputation feedback.
-> Full lifecycle — all on-chain."
+*(Türkçe not: Terminali gösterirken adımları anlat, heyecanlı ol — "bu gerçek Sepolia")*
+
+> "So let me show you this running. This is the agent lifecycle demo on real Sepolia — not a local fork. The agent registers its identity through ERC-8004, wraps USDC into encrypted cUSDC, then makes an FHE-encrypted transfer — the amount is hidden on-chain. Records the payment nonce, leaves reputation feedback. Full lifecycle, all real transactions — you can verify these on Etherscan."
 
 **Gosterilecek:** Terminal output — renkli progress bars, TX hash'ler, Etherscan linkleri.
 
-#### Demo 2: Virtuals Agent (1:35-1:50) — 15 sec
+#### Demo 2: Virtuals Agent (1:48-2:00) — ~12 sec
 
-> "And here's an autonomous Virtuals GAME agent.
-> It discovers a 402 paywall, wraps USDC, encrypts the payment, gets API access.
-> Fully autonomous — no human intervention.
-> This is what agentic commerce looks like with privacy."
+*(Türkçe not: Otonom agent'ı vurgula — "insan müdahalesi sıfır")*
+
+> "And this is an autonomous Virtuals GAME agent running the same flow. It discovers a 402 paywall on its own, wraps USDC, encrypts the payment, gets API access — all without any human intervention. This is what private agentic commerce actually looks like in practice."
 
 ---
 
-### PART 3: WEBSITE (1:50 — 2:05)
+### PART 3: WEBSITE (2:00 — 2:15)
 
 #### Tarayicida frontend'i goster (localhost veya Vercel)
 
-> "And the frontend — wrap USDC, make confidential payments, unwrap back.
-> You can see the banner: Infrastructure Today, Full Protocol Tomorrow.
-> Right now we're live infrastructure — with ERC-8183, we become a complete commerce protocol.
-> All powered by Zama's FHE. Real encryption, real privacy.
-> MARC Protocol — one protocol, every chain, full privacy.
-> Thank you."
+*(Türkçe not: Ekranı paylaş, tıkla göster. "Infrastructure → Protocol" banner'ına dikkat çek)*
+
+> "And here's the frontend. You can connect your wallet, wrap USDC into encrypted cUSDC, make confidential payments, and unwrap back — all through the browser. Notice the banner here — 'Infrastructure Today, Full Protocol Tomorrow.' That's exactly where we are. The payment layer is live, and ERC-8183 brings the full agentic commerce protocol. Thanks for watching."
 
 ---
 
@@ -412,14 +447,11 @@ pendingBatchNonces.add(payload.nonce);
 
 | Part | Duration | Content |
 |------|----------|---------|
-| Slides 1-6 | 0:00-0:54 | Title → Problem → Solution → Architecture → Built → Integration |
-| Slides 7,9,10,11 | 0:54-1:20 | Revenue → Why Zama → Roadmap (infra→protocol) → Closing |
-| Terminal Demo 1 | 1:20-1:35 | Agent lifecycle (Sepolia) |
-| Terminal Demo 2 | 1:35-1:50 | Virtuals autonomous agent |
-| Website | 1:50-2:05 | Frontend wrap/pay/unwrap (infra→protocol banner visible) |
-| **TOTAL** | **~2:05** | |
-
-**Note:** Slide 8 (Market) atlanir — video icin cok dense. Juri slaytlari ayrica inceleyebilir.
+| Slides 1-11 | 0:00-1:36 | Title → Problem → Solution → Architecture → Built → Integration → Revenue → Market → Why Zama → Roadmap → Closing |
+| Terminal Demo 1 | 1:36-1:48 | Agent lifecycle (Sepolia) |
+| Terminal Demo 2 | 1:48-2:00 | Virtuals autonomous agent |
+| Website | 2:00-2:15 | Frontend wrap/pay/unwrap (infra→protocol banner visible) |
+| **TOTAL** | **~2:15** | |
 
 ---
 

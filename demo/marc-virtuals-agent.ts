@@ -455,7 +455,7 @@ async function main() {
   console.log(`${CYAN}${BOLD}║  ${GREEN}Autonomous agent completed x402 payment cycle.${CYAN}          ║${RESET}`);
   console.log(`${CYAN}${BOLD}║  402 Detected → Wrap → FHE Pay → 200 OK                  ║${RESET}`);
   console.log(`${CYAN}${BOLD}║  All amounts encrypted — server can't see balances.       ║${RESET}`);
-  console.log(`${CYAN}${BOLD}║  github.com/Himess/fhe-x402                               ║${RESET}`);
+  console.log(`${CYAN}${BOLD}║  github.com/Himess/marc-protocol                          ║${RESET}`);
   console.log(`${CYAN}${BOLD}╚══════════════════════════════════════════════════════════╝${RESET}`);
   console.log("");
 }
