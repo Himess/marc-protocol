@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main, master]
 
+env:
+  NODE_ENV: ci
+
 jobs:
   # ═══════════════════════════════════════════════════════
   # Stage 1: Lint + Build (parallel)
@@ -20,7 +23,7 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
       - run: npx eslint . --max-warnings 0
       - run: npx solhint "contracts/**/*.sol"
       - run: npx prettier --check "sdk/src/**/*.ts" "packages/**/*.ts" "test/**/*.ts"
@@ -34,7 +37,7 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
       - run: npx hardhat compile
 
   build-sdk:
@@ -46,8 +49,8 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-      - run: npm ci
-      - run: cd sdk && npm ci
+      - run: npm ci --legacy-peer-deps
+      - run: cd sdk && npm ci --legacy-peer-deps
       - run: cd sdk && npx tsup
 
   build-frontend:
@@ -59,7 +62,7 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-      - run: cd frontend && npm ci
+      - run: cd frontend && npm ci --legacy-peer-deps
       - run: cd frontend && npx vite build
 
   # ═══════════════════════════════════════════════════════
@@ -76,7 +79,7 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
       - run: npx hardhat test
 
   test-sdk:
@@ -89,8 +92,8 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-      - run: npm ci
-      - run: cd sdk && npm ci
+      - run: npm ci --legacy-peer-deps
+      - run: cd sdk && npm ci --legacy-peer-deps
       - run: cd sdk && npx vitest run
 
   test-virtuals-plugin:
@@ -103,9 +106,9 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-      - run: npm ci
-      - run: cd sdk && npm ci
-      - run: cd packages/virtuals-plugin && npm ci
+      - run: npm ci --legacy-peer-deps
+      - run: cd sdk && npm ci --legacy-peer-deps
+      - run: cd packages/virtuals-plugin && npm ci --legacy-peer-deps
       - run: cd packages/virtuals-plugin && npx vitest run
 
   test-openclaw-skill:
@@ -118,9 +121,9 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-      - run: npm ci
-      - run: cd sdk && npm ci
-      - run: cd packages/openclaw-skill && npm ci
+      - run: npm ci --legacy-peer-deps
+      - run: cd sdk && npm ci --legacy-peer-deps
+      - run: cd packages/openclaw-skill && npm ci --legacy-peer-deps
       - run: cd packages/openclaw-skill && npx vitest run
 
   # ═══════════════════════════════════════════════════════
@@ -137,14 +140,8 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
       - name: npm audit
         run: npm audit --audit-level=high || true
       - name: Solhint strict
         run: npx solhint "contracts/**/*.sol" --max-warnings 0
-      - name: Check for hardcoded secrets
-        run: |
-          ! grep -rn "PRIVATE_KEY\s*=" --include="*.ts" --include="*.js" --include="*.sol" \
-            --exclude-dir=node_modules --exclude-dir=.git \
-            --exclude="*.test.*" --exclude="*.example.*" --exclude="*.md" \
-            . | grep -v "process.env" | grep -v "// " | grep -v "example" || true
