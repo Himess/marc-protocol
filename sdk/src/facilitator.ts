@@ -67,9 +67,7 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
   if (config.apiKey) {
     app.use((req: any, res: any, nextFn: any) => {
       if (req.path === "/health" || req.path === "/info") return nextFn();
-      const key =
-        req.headers["x-fhe-x402-api-key"] ||
-        req.headers["authorization"]?.replace("Bearer ", "");
+      const key = req.headers["x-fhe-x402-api-key"] || req.headers["authorization"]?.replace("Bearer ", "");
       if (!key || !timingSafeCompare(key, config.apiKey!)) {
         return res.status(401).json({ valid: false, error: "Unauthorized: invalid API key" });
       }
@@ -112,12 +110,7 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
       tokens: ["USDC"],
       protocolFee: "0.1%",
       minFee: "10000",
-      features: [
-        "fhe-encrypted-amounts",
-        "token-centric",
-        "fee-free-transfers",
-        "event-verification",
-      ],
+      features: ["fhe-encrypted-amounts", "token-centric", "fee-free-transfers", "event-verification"],
     });
   });
 

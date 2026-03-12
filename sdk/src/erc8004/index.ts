@@ -44,11 +44,7 @@ export function fhePaymentMethod(config: {
     tokenAddress: config.tokenAddress,
     verifier: config.verifierAddress,
     privacyLevel: "encrypted-balances",
-    features: [
-      "fhe-encrypted-amounts",
-      "token-centric",
-      "fee-free-transfers",
-    ],
+    features: ["fhe-encrypted-amounts", "token-centric", "fee-free-transfers"],
     description: "FHE-encrypted x402 payment via ConfidentialUSDC token",
   };
 }
@@ -58,11 +54,7 @@ export function fhePaymentMethod(config: {
  * Uses nonce as proof that a real payment was made,
  * without revealing the encrypted amount.
  */
-export function fhePaymentProof(
-  nonce: string,
-  tokenAddress: string,
-  network?: string
-): PaymentProofForFeedback {
+export function fhePaymentProof(nonce: string, tokenAddress: string, network?: string): PaymentProofForFeedback {
   return {
     type: "fhe-x402-nonce",
     nonce,
@@ -204,7 +196,9 @@ export async function registerAgent(
       if (parsed?.name === "AgentRegistered") {
         return { agentId: BigInt(parsed.args[0]), txHash: receipt.hash };
       }
-    } catch { continue; }
+    } catch {
+      continue;
+    }
   }
 
   throw new Error("AgentRegistered event not found in receipt");
@@ -213,11 +207,7 @@ export async function registerAgent(
 /**
  * Set an agent's wallet address.
  */
-export async function setAgentWallet(
-  registry: Contract,
-  agentId: bigint | number,
-  wallet: string
-): Promise<string> {
+export async function setAgentWallet(registry: Contract, agentId: bigint | number, wallet: string): Promise<string> {
   const tx = await registry.setAgentWallet(agentId, wallet);
   const receipt = await tx.wait();
   return receipt.hash;
@@ -237,33 +227,20 @@ export async function getAgent(
 /**
  * Look up agent ID by wallet address.
  */
-export async function agentOf(
-  registry: Contract,
-  wallet: string
-): Promise<bigint> {
+export async function agentOf(registry: Contract, wallet: string): Promise<bigint> {
   return BigInt(await registry.agentOf(wallet));
 }
 
 /**
  * Submit feedback for an agent on the Reputation Registry.
  */
-export async function giveFeedback(
-  reputation: Contract,
-  feedback: FeedbackData
-): Promise<string> {
+export async function giveFeedback(reputation: Contract, feedback: FeedbackData): Promise<string> {
   // Encode tags as bytes32
-  const tagBytes = feedback.tags.map((tag) =>
-    ethers.encodeBytes32String(tag.slice(0, 31))
-  );
+  const tagBytes = feedback.tags.map((tag) => ethers.encodeBytes32String(tag.slice(0, 31)));
   // Encode proof of payment
   const proofBytes = ethers.toUtf8Bytes(feedback.proofOfPayment);
 
-  const tx = await reputation.giveFeedback(
-    feedback.agentId,
-    feedback.score,
-    tagBytes,
-    proofBytes
-  );
+  const tx = await reputation.giveFeedback(feedback.agentId, feedback.score, tagBytes, proofBytes);
   const receipt = await tx.wait();
   return receipt.hash;
 }

@@ -15,8 +15,7 @@ const log = createLogger("fheFetch");
 export function createFheFetch(
   defaultOptions: FheFetchOptions
 ): (url: string | URL, init?: RequestInit) => Promise<Response> {
-  return (url: string | URL, init?: RequestInit) =>
-    fheFetch(url, { ...defaultOptions, ...init } as FheFetchOptions);
+  return (url: string | URL, init?: RequestInit) => fheFetch(url, { ...defaultOptions, ...init } as FheFetchOptions);
 }
 
 /**
@@ -28,10 +27,7 @@ export function createFheFetch(
  * 3. Retry with Payment header containing txHash + verifierTxHash + nonce
  * 4. Return final response
  */
-export async function fheFetch(
-  url: string | URL,
-  options: FheFetchOptions
-): Promise<Response> {
+export async function fheFetch(url: string | URL, options: FheFetchOptions): Promise<Response> {
   const {
     tokenAddress: _tokenAddress,
     verifierAddress: _verifierAddress,
@@ -80,11 +76,7 @@ export async function fheFetch(
       const retryHeaders = new Headers(fetchOptions.headers);
       retryHeaders.set("Payment", result.paymentHeader);
 
-      const retryResponse = await fetchWithTimeout(
-        url,
-        { ...fetchOptions, headers: retryHeaders },
-        timeout
-      );
+      const retryResponse = await fetchWithTimeout(url, { ...fetchOptions, headers: retryHeaders }, timeout);
 
       // [C1] On-chain TX verification after server confirms payment
       if (retryResponse.ok && result.txHash && options.rpcUrl) {
@@ -156,11 +148,7 @@ export async function fheFetchWithCallback(
   const retryHeaders = new Headers(fetchOptions.headers);
   retryHeaders.set("Payment", result.paymentHeader);
 
-  const retryResponse = await fetchWithTimeout(
-    url,
-    { ...fetchOptions, headers: retryHeaders },
-    timeout
-  );
+  const retryResponse = await fetchWithTimeout(url, { ...fetchOptions, headers: retryHeaders }, timeout);
 
   onPayment(result, retryResponse.ok);
 
@@ -205,11 +193,7 @@ export async function verifyTxOnChain(
 // Helpers
 // ============================================================================
 
-async function fetchWithTimeout(
-  url: string | URL,
-  init: RequestInit,
-  timeoutMs: number
-): Promise<Response> {
+async function fetchWithTimeout(url: string | URL, init: RequestInit, timeoutMs: number): Promise<Response> {
   if (timeoutMs <= 0) return fetch(url, init);
 
   const controller = new AbortController();

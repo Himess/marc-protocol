@@ -27,12 +27,7 @@ function shouldLog(level: LogLevel): boolean {
   return LOG_LEVELS[level] >= LOG_LEVELS[currentLevel];
 }
 
-function formatMessage(
-  level: LogLevel,
-  component: string,
-  message: string,
-  data?: Record<string, unknown>
-): string {
+function formatMessage(level: LogLevel, component: string, message: string, data?: Record<string, unknown>): string {
   const timestamp = new Date().toISOString();
   const prefix = `[${timestamp}] [${level.toUpperCase()}] [marc:${component}]`;
   const dataStr = data ? ` ${JSON.stringify(data)}` : "";
@@ -49,20 +44,16 @@ export interface Logger {
 export function createLogger(component: string): Logger {
   return {
     debug: (msg: string, data?: Record<string, unknown>) => {
-      if (shouldLog("debug"))
-        console.debug(formatMessage("debug", component, msg, data));
+      if (shouldLog("debug")) console.debug(formatMessage("debug", component, msg, data));
     },
     info: (msg: string, data?: Record<string, unknown>) => {
-      if (shouldLog("info"))
-        console.info(formatMessage("info", component, msg, data));
+      if (shouldLog("info")) console.info(formatMessage("info", component, msg, data));
     },
     warn: (msg: string, data?: Record<string, unknown>) => {
-      if (shouldLog("warn"))
-        console.warn(formatMessage("warn", component, msg, data));
+      if (shouldLog("warn")) console.warn(formatMessage("warn", component, msg, data));
     },
     error: (msg: string, data?: Record<string, unknown>) => {
-      if (shouldLog("error"))
-        console.error(formatMessage("error", component, msg, data));
+      if (shouldLog("error")) console.error(formatMessage("error", component, msg, data));
     },
   };
 }

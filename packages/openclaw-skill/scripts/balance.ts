@@ -11,7 +11,9 @@ export async function run(): Promise<string> {
     let encryptedBalanceHandle = "0x" + "00".repeat(32);
     try {
       encryptedBalanceHandle = await token.confidentialBalanceOf(address);
-    } catch { /* may not be available */ }
+    } catch {
+      /* may not be available */
+    }
 
     const hasEncryptedBalance = encryptedBalanceHandle !== "0x" + "00".repeat(32);
 

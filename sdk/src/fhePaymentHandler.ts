@@ -55,19 +55,13 @@ export class FhePaymentHandler {
   private fhevmInstance: FhevmInstance;
   private options: FhePaymentHandlerOptions;
 
-  constructor(
-    signer: ethers.Signer,
-    fhevmInstance: FhevmInstance,
-    options: FhePaymentHandlerOptions = {}
-  ) {
+  constructor(signer: ethers.Signer, fhevmInstance: FhevmInstance, options: FhePaymentHandlerOptions = {}) {
     this.signer = signer;
     this.fhevmInstance = fhevmInstance;
     this.options = options;
   }
 
-  async parsePaymentRequired(
-    response: Response
-  ): Promise<FhePaymentRequired | null> {
+  async parsePaymentRequired(response: Response): Promise<FhePaymentRequired | null> {
     if (response.status !== 402) return null;
     try {
       const body = await response.json();
@@ -80,15 +74,10 @@ export class FhePaymentHandler {
     }
   }
 
-  selectRequirement(
-    requirements: FhePaymentRequirements[]
-  ): FhePaymentRequirements | null {
+  selectRequirement(requirements: FhePaymentRequirements[]): FhePaymentRequirements | null {
     for (const req of requirements) {
       if (req.scheme !== FHE_SCHEME) continue;
-      if (
-        this.options.allowedNetworks?.length &&
-        !this.options.allowedNetworks.includes(req.network)
-      ) {
+      if (this.options.allowedNetworks?.length && !this.options.allowedNetworks.includes(req.network)) {
         continue;
       }
       if (this.options.maxPayment && this.options.maxPayment > 0n) {
@@ -100,9 +89,7 @@ export class FhePaymentHandler {
     return null;
   }
 
-  async createPayment(
-    requirements: FhePaymentRequirements
-  ): Promise<FhePaymentResult> {
+  async createPayment(requirements: FhePaymentRequirements): Promise<FhePaymentResult> {
     const signerAddress = await this.signer.getAddress();
     const amount = BigInt(requirements.price);
 
@@ -112,10 +99,7 @@ export class FhePaymentHandler {
     // Encrypt amount with @zama-fhe/relayer-sdk
     let encrypted: { handles: string[]; inputProof: string };
     try {
-      const input = this.fhevmInstance.createEncryptedInput(
-        requirements.tokenAddress,
-        signerAddress
-      );
+      const input = this.fhevmInstance.createEncryptedInput(requirements.tokenAddress, signerAddress);
       input.add64(amount);
       encrypted = await Promise.race([
         input.encrypt(),
@@ -124,10 +108,10 @@ export class FhePaymentHandler {
         ),
       ]);
     } catch (err) {
-      throw new EncryptionError(
-        `FHE encryption failed: ${err instanceof Error ? err.message : String(err)}`,
-        { amount: amount.toString(), tokenAddress: requirements.tokenAddress }
-      );
+      throw new EncryptionError(`FHE encryption failed: ${err instanceof Error ? err.message : String(err)}`, {
+        amount: amount.toString(),
+        tokenAddress: requirements.tokenAddress,
+      });
     }
 
     if (!encrypted.handles || encrypted.handles.length === 0) {
@@ -156,16 +140,10 @@ export class FhePaymentHandler {
     }
 
     // Step 2: Call verifier.recordPayment() — on-chain nonce with minPrice
-    const verifierABI = [
-      "function recordPayment(address server, bytes32 nonce, uint64 minPrice) external",
-    ];
+    const verifierABI = ["function recordPayment(address server, bytes32 nonce, uint64 minPrice) external"];
     const verifier = new Contract(requirements.verifierAddress, verifierABI, this.signer);
 
-    const vTx = await verifier.recordPayment(
-      requirements.recipientAddress,
-      nonce,
-      amount
-    );
+    const vTx = await verifier.recordPayment(requirements.recipientAddress, nonce, amount);
     const vReceipt = await vTx.wait();
 
     if (!vReceipt || vReceipt.status === 0) {
@@ -208,9 +186,7 @@ export class FhePaymentHandler {
    * Use createPayment() (2-TX flow) instead for production deployments.
    * This method is kept for local Hardhat testing where FHE is mocked.
    */
-  async createSingleTxPayment(
-    requirements: FhePaymentRequirements
-  ): Promise<FhePaymentResult> {
+  async createSingleTxPayment(requirements: FhePaymentRequirements): Promise<FhePaymentResult> {
     const signerAddress = await this.signer.getAddress();
     const amount = BigInt(requirements.price);
     const nonce = ethers.hexlify(ethers.randomBytes(32));
@@ -218,10 +194,7 @@ export class FhePaymentHandler {
     // Encrypt amount with @zama-fhe/relayer-sdk
     let encrypted: { handles: string[]; inputProof: string };
     try {
-      const input = this.fhevmInstance.createEncryptedInput(
-        requirements.tokenAddress,
-        signerAddress
-      );
+      const input = this.fhevmInstance.createEncryptedInput(requirements.tokenAddress, signerAddress);
       input.add64(amount);
       encrypted = await Promise.race([
         input.encrypt(),
@@ -230,10 +203,10 @@ export class FhePaymentHandler {
         ),
       ]);
     } catch (err) {
-      throw new EncryptionError(
-        `FHE encryption failed: ${err instanceof Error ? err.message : String(err)}`,
-        { amount: amount.toString(), tokenAddress: requirements.tokenAddress }
-      );
+      throw new EncryptionError(`FHE encryption failed: ${err instanceof Error ? err.message : String(err)}`, {
+        amount: amount.toString(),
+        tokenAddress: requirements.tokenAddress,
+      });
     }
 
     if (!encrypted.handles || encrypted.handles.length === 0) {
@@ -367,10 +340,7 @@ export class FhePaymentHandler {
     // Encrypt total amount with @zama-fhe/relayer-sdk
     let encrypted: { handles: string[]; inputProof: string };
     try {
-      const input = this.fhevmInstance.createEncryptedInput(
-        requirements.tokenAddress,
-        signerAddress
-      );
+      const input = this.fhevmInstance.createEncryptedInput(requirements.tokenAddress, signerAddress);
       input.add64(totalAmount);
       encrypted = await Promise.race([
         input.encrypt(),
@@ -379,10 +349,10 @@ export class FhePaymentHandler {
         ),
       ]);
     } catch (err) {
-      throw new EncryptionError(
-        `FHE encryption failed: ${err instanceof Error ? err.message : String(err)}`,
-        { amount: totalAmount.toString(), tokenAddress: requirements.tokenAddress }
-      );
+      throw new EncryptionError(`FHE encryption failed: ${err instanceof Error ? err.message : String(err)}`, {
+        amount: totalAmount.toString(),
+        tokenAddress: requirements.tokenAddress,
+      });
     }
 
     if (!encrypted.handles || encrypted.handles.length === 0) {
@@ -416,12 +386,7 @@ export class FhePaymentHandler {
     ];
     const verifier = new Contract(requirements.verifierAddress, verifierABI, this.signer);
 
-    const vTx = await verifier.recordBatchPayment(
-      requirements.recipientAddress,
-      nonce,
-      requestCount,
-      perRequest
-    );
+    const vTx = await verifier.recordBatchPayment(requirements.recipientAddress, nonce, requestCount, perRequest);
     const vReceipt = await vTx.wait();
 
     if (!vReceipt || vReceipt.status === 0) {

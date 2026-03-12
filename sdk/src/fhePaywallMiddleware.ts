@@ -326,173 +326,64 @@ export function fhePaywall(config: FhePaywallConfig): RequestHandler {
     pendingNonces.add(payload.nonce);
 
     try {
-    // Nonce replay prevention — always atomic check-and-add to prevent TOCTOU race
-    if ("checkAndAdd" in nonceStore && typeof nonceStore.checkAndAdd === "function") {
-      const isNew = await nonceStore.checkAndAdd(payload.nonce);
-      if (!isNew) {
-        pendingNonces.delete(payload.nonce);
-        res.status(400).json({ error: "Nonce already used" });
-        return;
-      }
-    } else {
-      // Fallback: use atomic check-and-add pattern even with separate methods
-      const isNewNonce = await nonceStore.check(payload.nonce);
-      if (!isNewNonce) {
-        pendingNonces.delete(payload.nonce);
-        res.status(400).json({ error: "Nonce already used" });
-        return;
-      }
-      // Add immediately before any async work to minimize TOCTOU window
-      await nonceStore.add(payload.nonce);
-    }
-
-    // ===== Verify on-chain events =====
-    try {
-      // Verify ConfidentialTransfer event (from cUSDC token)
-      const receipt = await Promise.race([
-        provider.getTransactionReceipt(payload.txHash),
-        new Promise<null>((_, reject) => setTimeout(() => reject(new Error("RPC timeout")), 30_000)),
-      ]);
-      if (!receipt || receipt.status === 0) {
-        res.status(400).json({ error: "Transaction failed or not found" });
-        return;
-      }
-
-      // Confirmation depth check
-      if (minConfirmations > 1) {
-        const currentBlock = await provider.getBlockNumber();
-        const confirmations = currentBlock - receipt.blockNumber + 1;
-        if (confirmations < minConfirmations) {
-          res.status(400).json({
-            error: `Insufficient confirmations: ${confirmations}/${minConfirmations}`,
-          });
-          return;
-        }
-      }
-
-      // Parse ConfidentialTransfer event
-      const tokenIface = new ethers.Interface(TOKEN_EVENT_ABI);
-      let transferVerified = false;
-
-      for (const log of receipt.logs) {
-        if (log.address.toLowerCase() !== config.tokenAddress.toLowerCase()) continue;
-        try {
-          const parsed = tokenIface.parseLog({ topics: log.topics as string[], data: log.data });
-          if (
-            parsed?.name === "ConfidentialTransfer" &&
-            parsed.args[0].toLowerCase() === payload.from.toLowerCase() &&
-            parsed.args[1].toLowerCase() === config.recipientAddress.toLowerCase()
-          ) {
-            transferVerified = true;
-            break;
-          }
-        } catch {
-          // Event parsing expected to fail for non-matching logs
-          continue;
-        }
-      }
-
-      if (!transferVerified) {
-        res.status(400).json({ error: "ConfidentialTransfer event not found or mismatched" });
-        return;
-      }
-
-      // Silent failure heuristic: verify sender's balance handle changed
-      // This catches the common case where FHE.select() returns 0 on insufficient balance
-      try {
-        const senderBalanceHandle: string = await provider.call({
-          to: config.tokenAddress,
-          data: new ethers.Interface(["function confidentialBalanceOf(address) view returns (bytes32)"])
-            .encodeFunctionData("confidentialBalanceOf", [payload.from]),
-        });
-        // Note: We can't decrypt the handle, but a zero handle means no balance at all
-        const ZERO_HANDLE = "0x" + "00".repeat(32);
-        if (senderBalanceHandle === ZERO_HANDLE || senderBalanceHandle === "0x") {
-          // Sender's encrypted balance is zero — transfer was definitely 0
-          res.status(400).json({ error: "Silent failure detected: sender has zero encrypted balance" });
-          return;
-        }
-      } catch {
-        // Balance check failed — proceed without heuristic (non-blocking)
-      }
-
-      // Verify nonce event — dual-TX (PaymentVerified) or single-TX (PayAndRecordCompleted)
-      if (payload.verifierTxHash) {
-        // V4.0/V4.1 dual-TX: PaymentVerified in separate verifier transaction
-        const vReceipt = await Promise.race([
-          provider.getTransactionReceipt(payload.verifierTxHash),
-          new Promise<null>((_, reject) => setTimeout(() => reject(new Error("RPC timeout")), 30_000)),
-        ]);
-        if (!vReceipt || vReceipt.status === 0) {
-          res.status(400).json({ error: "Verifier transaction failed or not found" });
-          return;
-        }
-
-        const verifierIface = new ethers.Interface(VERIFIER_EVENT_ABI);
-        let nonceVerified = false;
-
-        const requiredPrice = BigInt(config.price);
-
-        for (const log of vReceipt.logs) {
-          if (log.address.toLowerCase() !== config.verifierAddress.toLowerCase()) continue;
-          try {
-            const parsed = verifierIface.parseLog({ topics: log.topics as string[], data: log.data });
-            if (
-              parsed?.name === "PaymentVerified" &&
-              parsed.args[0].toLowerCase() === payload.from.toLowerCase() &&
-              parsed.args[1].toLowerCase() === config.recipientAddress.toLowerCase() &&
-              parsed.args[2] === payload.nonce
-            ) {
-              // V4.1: Verify minPrice >= required price
-              const eventMinPrice = BigInt(parsed.args[3]);
-              if (eventMinPrice < requiredPrice) {
-                res.status(400).json({
-                  error: `Insufficient minPrice: committed ${eventMinPrice}, required ${requiredPrice}`,
-                });
-                return;
-              }
-              nonceVerified = true;
-              break;
-            }
-          } catch {
-            // Event parsing expected to fail for non-matching logs
-            continue;
-          }
-        }
-
-        if (!nonceVerified) {
-          res.status(400).json({ error: "PaymentVerified event not found or mismatched" });
+      // Nonce replay prevention — always atomic check-and-add to prevent TOCTOU race
+      if ("checkAndAdd" in nonceStore && typeof nonceStore.checkAndAdd === "function") {
+        const isNew = await nonceStore.checkAndAdd(payload.nonce);
+        if (!isNew) {
+          pendingNonces.delete(payload.nonce);
+          res.status(400).json({ error: "Nonce already used" });
           return;
         }
       } else {
-        // V4.2 single-TX: PayAndRecordCompleted in same receipt as ConfidentialTransfer
-        const payAndRecordIface = new ethers.Interface(PAY_AND_RECORD_EVENT_ABI);
-        let singleTxVerified = false;
-        const requiredPrice = BigInt(config.price);
+        // Fallback: use atomic check-and-add pattern even with separate methods
+        const isNewNonce = await nonceStore.check(payload.nonce);
+        if (!isNewNonce) {
+          pendingNonces.delete(payload.nonce);
+          res.status(400).json({ error: "Nonce already used" });
+          return;
+        }
+        // Add immediately before any async work to minimize TOCTOU window
+        await nonceStore.add(payload.nonce);
+      }
+
+      // ===== Verify on-chain events =====
+      try {
+        // Verify ConfidentialTransfer event (from cUSDC token)
+        const receipt = await Promise.race([
+          provider.getTransactionReceipt(payload.txHash),
+          new Promise<null>((_, reject) => setTimeout(() => reject(new Error("RPC timeout")), 30_000)),
+        ]);
+        if (!receipt || receipt.status === 0) {
+          res.status(400).json({ error: "Transaction failed or not found" });
+          return;
+        }
+
+        // Confirmation depth check
+        if (minConfirmations > 1) {
+          const currentBlock = await provider.getBlockNumber();
+          const confirmations = currentBlock - receipt.blockNumber + 1;
+          if (confirmations < minConfirmations) {
+            res.status(400).json({
+              error: `Insufficient confirmations: ${confirmations}/${minConfirmations}`,
+            });
+            return;
+          }
+        }
+
+        // Parse ConfidentialTransfer event
+        const tokenIface = new ethers.Interface(TOKEN_EVENT_ABI);
+        let transferVerified = false;
 
         for (const log of receipt.logs) {
-          if (log.address.toLowerCase() !== config.verifierAddress.toLowerCase()) continue;
+          if (log.address.toLowerCase() !== config.tokenAddress.toLowerCase()) continue;
           try {
-            const parsed = payAndRecordIface.parseLog({ topics: log.topics as string[], data: log.data });
+            const parsed = tokenIface.parseLog({ topics: log.topics as string[], data: log.data });
             if (
-              parsed?.name === "PayAndRecordCompleted" &&
+              parsed?.name === "ConfidentialTransfer" &&
               parsed.args[0].toLowerCase() === payload.from.toLowerCase() &&
-              parsed.args[1].toLowerCase() === config.recipientAddress.toLowerCase() &&
-              parsed.args[2] === payload.nonce
+              parsed.args[1].toLowerCase() === config.recipientAddress.toLowerCase()
             ) {
-              // Verify token address matches
-              if (parsed.args[3].toLowerCase() !== config.tokenAddress.toLowerCase()) {
-                continue;
-              }
-              // Verify minPrice >= required price
-              const eventMinPrice = BigInt(parsed.args[4]);
-              if (eventMinPrice < requiredPrice) {
-                res.status(400).json({
-                  error: `Insufficient minPrice: committed ${eventMinPrice}, required ${requiredPrice}`,
-                });
-                return;
-              }
-              singleTxVerified = true;
+              transferVerified = true;
               break;
             }
           } catch {
@@ -501,34 +392,144 @@ export function fhePaywall(config: FhePaywallConfig): RequestHandler {
           }
         }
 
-        if (!singleTxVerified) {
-          res.status(400).json({ error: "PayAndRecordCompleted event not found or mismatched" });
+        if (!transferVerified) {
+          res.status(400).json({ error: "ConfidentialTransfer event not found or mismatched" });
           return;
         }
-      }
 
-      // Attach payment info
-      req.paymentInfo = {
-        from: payload.from,
-        amount: String(config.price),
-        asset: config.asset,
-        recipient: config.recipientAddress,
-        txHash: payload.txHash,
-        verifierTxHash: payload.verifierTxHash || "",
-        nonce: payload.nonce,
-        blockNumber: receipt.blockNumber,
-      };
+        // Silent failure heuristic: verify sender's balance handle changed
+        // This catches the common case where FHE.select() returns 0 on insufficient balance
+        try {
+          const senderBalanceHandle: string = await provider.call({
+            to: config.tokenAddress,
+            data: new ethers.Interface([
+              "function confidentialBalanceOf(address) view returns (bytes32)",
+            ]).encodeFunctionData("confidentialBalanceOf", [payload.from]),
+          });
+          // Note: We can't decrypt the handle, but a zero handle means no balance at all
+          const ZERO_HANDLE = "0x" + "00".repeat(32);
+          if (senderBalanceHandle === ZERO_HANDLE || senderBalanceHandle === "0x") {
+            // Sender's encrypted balance is zero — transfer was definitely 0
+            res.status(400).json({ error: "Silent failure detected: sender has zero encrypted balance" });
+            return;
+          }
+        } catch {
+          // Balance check failed — proceed without heuristic (non-blocking)
+        }
 
-      res.setHeader("X-Payment-TxHash", payload.txHash);
-      next();
-    } catch (err) {
-      if (err instanceof Error && err.message === "RPC timeout") {
-        res.status(504).json({ error: "RPC timeout during payment verification" });
-        return;
+        // Verify nonce event — dual-TX (PaymentVerified) or single-TX (PayAndRecordCompleted)
+        if (payload.verifierTxHash) {
+          // V4.0/V4.1 dual-TX: PaymentVerified in separate verifier transaction
+          const vReceipt = await Promise.race([
+            provider.getTransactionReceipt(payload.verifierTxHash),
+            new Promise<null>((_, reject) => setTimeout(() => reject(new Error("RPC timeout")), 30_000)),
+          ]);
+          if (!vReceipt || vReceipt.status === 0) {
+            res.status(400).json({ error: "Verifier transaction failed or not found" });
+            return;
+          }
+
+          const verifierIface = new ethers.Interface(VERIFIER_EVENT_ABI);
+          let nonceVerified = false;
+
+          const requiredPrice = BigInt(config.price);
+
+          for (const log of vReceipt.logs) {
+            if (log.address.toLowerCase() !== config.verifierAddress.toLowerCase()) continue;
+            try {
+              const parsed = verifierIface.parseLog({ topics: log.topics as string[], data: log.data });
+              if (
+                parsed?.name === "PaymentVerified" &&
+                parsed.args[0].toLowerCase() === payload.from.toLowerCase() &&
+                parsed.args[1].toLowerCase() === config.recipientAddress.toLowerCase() &&
+                parsed.args[2] === payload.nonce
+              ) {
+                // V4.1: Verify minPrice >= required price
+                const eventMinPrice = BigInt(parsed.args[3]);
+                if (eventMinPrice < requiredPrice) {
+                  res.status(400).json({
+                    error: `Insufficient minPrice: committed ${eventMinPrice}, required ${requiredPrice}`,
+                  });
+                  return;
+                }
+                nonceVerified = true;
+                break;
+              }
+            } catch {
+              // Event parsing expected to fail for non-matching logs
+              continue;
+            }
+          }
+
+          if (!nonceVerified) {
+            res.status(400).json({ error: "PaymentVerified event not found or mismatched" });
+            return;
+          }
+        } else {
+          // V4.2 single-TX: PayAndRecordCompleted in same receipt as ConfidentialTransfer
+          const payAndRecordIface = new ethers.Interface(PAY_AND_RECORD_EVENT_ABI);
+          let singleTxVerified = false;
+          const requiredPrice = BigInt(config.price);
+
+          for (const log of receipt.logs) {
+            if (log.address.toLowerCase() !== config.verifierAddress.toLowerCase()) continue;
+            try {
+              const parsed = payAndRecordIface.parseLog({ topics: log.topics as string[], data: log.data });
+              if (
+                parsed?.name === "PayAndRecordCompleted" &&
+                parsed.args[0].toLowerCase() === payload.from.toLowerCase() &&
+                parsed.args[1].toLowerCase() === config.recipientAddress.toLowerCase() &&
+                parsed.args[2] === payload.nonce
+              ) {
+                // Verify token address matches
+                if (parsed.args[3].toLowerCase() !== config.tokenAddress.toLowerCase()) {
+                  continue;
+                }
+                // Verify minPrice >= required price
+                const eventMinPrice = BigInt(parsed.args[4]);
+                if (eventMinPrice < requiredPrice) {
+                  res.status(400).json({
+                    error: `Insufficient minPrice: committed ${eventMinPrice}, required ${requiredPrice}`,
+                  });
+                  return;
+                }
+                singleTxVerified = true;
+                break;
+              }
+            } catch {
+              // Event parsing expected to fail for non-matching logs
+              continue;
+            }
+          }
+
+          if (!singleTxVerified) {
+            res.status(400).json({ error: "PayAndRecordCompleted event not found or mismatched" });
+            return;
+          }
+        }
+
+        // Attach payment info
+        req.paymentInfo = {
+          from: payload.from,
+          amount: String(config.price),
+          asset: config.asset,
+          recipient: config.recipientAddress,
+          txHash: payload.txHash,
+          verifierTxHash: payload.verifierTxHash || "",
+          nonce: payload.nonce,
+          blockNumber: receipt.blockNumber,
+        };
+
+        res.setHeader("X-Payment-TxHash", payload.txHash);
+        next();
+      } catch (err) {
+        if (err instanceof Error && err.message === "RPC timeout") {
+          res.status(504).json({ error: "RPC timeout during payment verification" });
+          return;
+        }
+        console.error("[fhe-x402] Verification failed:", err instanceof Error ? err.message : err);
+        res.status(500).json({ error: "Payment verification failed" });
       }
-      console.error("[fhe-x402] Verification failed:", err instanceof Error ? err.message : err);
-      res.status(500).json({ error: "Payment verification failed" });
-    }
     } finally {
       // [C2] Always release nonce mutex
       pendingNonces.delete(payload.nonce);
@@ -663,297 +664,105 @@ export function fheBatchPaywall(config: FhePaywallConfig): RequestHandler {
     pendingBatchNonces.add(nonce);
 
     try {
-    // ===== Check for existing batch credits =====
-    // NOTE: Batch credits are only consumed for known nonces that were already
-    // verified on-chain during initial registration. The nonce was added to the
-    // nonceStore when the batch was first registered, so a replay of an unknown
-    // nonce will be caught by the nonce check below. We still need to verify
-    // the nonce belongs to a registered batch before consuming credits.
-    if (isBatch) {
-      const key = batchCreditKey(payerAddress, nonce);
-      const creditEntry = batchCreditStore.get(key);
-      if (creditEntry && creditEntry.remaining > 0) {
-        // Verify this nonce was previously registered (not a forged credit claim)
-        // by checking that the batch credit store has a valid entry for this payer+nonce.
-        // The nonce was already added to nonceStore during initial batch registration.
-        const hasCredit = consumeBatchCredit(payerAddress, nonce);
-        if (hasCredit) {
-          // Credit consumed — allow through without on-chain verification
-          req.paymentInfo = {
-            from: payerAddress,
-            amount: String((rawPayload as unknown as FheBatchPaymentPayload).pricePerRequest),
-            asset: config.asset,
-            recipient: config.recipientAddress,
-            txHash: rawPayload.txHash as string,
-            verifierTxHash: (rawPayload.verifierTxHash as string) || "",
-            nonce,
-            blockNumber: 0, // batch credit — no new block
-          };
-          res.setHeader("X-Payment-TxHash", rawPayload.txHash as string);
-          res.setHeader("X-Batch-Credits-Remaining", String(getBatchCredits(payerAddress, nonce)));
-          next();
-          return;
-        }
-      }
-    }
-
-    // ===== Nonce replay prevention — always atomic to prevent TOCTOU race =====
-    if ("checkAndAdd" in nonceStore && typeof nonceStore.checkAndAdd === "function") {
-      const isNew = await nonceStore.checkAndAdd(nonce);
-      if (!isNew) {
-        // For batch: nonce already used but no credits left → 402
-        if (isBatch) {
-          res.status(402).json({ error: "Batch credits exhausted", nonce });
-          return;
-        }
-        res.status(400).json({ error: "Nonce already used" });
-        return;
-      }
-    } else {
-      // Fallback: use atomic check-and-add pattern even with separate methods
-      const isNewNonce = await nonceStore.check(nonce);
-      if (!isNewNonce) {
-        if (isBatch) {
-          res.status(402).json({ error: "Batch credits exhausted", nonce });
-          return;
-        }
-        res.status(400).json({ error: "Nonce already used" });
-        return;
-      }
-      // Add immediately before any async work to minimize TOCTOU window
-      await nonceStore.add(nonce);
-    }
-
-    // ===== Verify on-chain events =====
-    try {
-      const txHash = rawPayload.txHash as string;
-      const receipt = await Promise.race([
-        provider.getTransactionReceipt(txHash),
-        new Promise<null>((_, reject) => setTimeout(() => reject(new Error("RPC timeout")), 30_000)),
-      ]);
-      if (!receipt || receipt.status === 0) {
-        res.status(400).json({ error: "Transaction failed or not found" });
-        return;
-      }
-
-      // Confirmation depth check
-      if (minConfirmations > 1) {
-        const currentBlock = await provider.getBlockNumber();
-        const confirmations = currentBlock - receipt.blockNumber + 1;
-        if (confirmations < minConfirmations) {
-          res.status(400).json({
-            error: `Insufficient confirmations: ${confirmations}/${minConfirmations}`,
-          });
-          return;
-        }
-      }
-
-      // Verify ConfidentialTransfer event
-      const tokenIface = new ethers.Interface(TOKEN_EVENT_ABI);
-      let transferVerified = false;
-
-      for (const log of receipt.logs) {
-        if (log.address.toLowerCase() !== config.tokenAddress.toLowerCase()) continue;
-        try {
-          const parsed = tokenIface.parseLog({ topics: log.topics as string[], data: log.data });
-          if (
-            parsed?.name === "ConfidentialTransfer" &&
-            parsed.args[0].toLowerCase() === payerAddress.toLowerCase() &&
-            parsed.args[1].toLowerCase() === config.recipientAddress.toLowerCase()
-          ) {
-            transferVerified = true;
-            break;
-          }
-        } catch {
-          // Event parsing expected to fail for non-matching logs
-          continue;
-        }
-      }
-
-      if (!transferVerified) {
-        res.status(400).json({ error: "ConfidentialTransfer event not found or mismatched" });
-        return;
-      }
-
-      // ===== Batch vs single verification =====
-      const verifierTxHash = rawPayload.verifierTxHash as string;
-
-      if (isBatch && verifierTxHash) {
-        // V4.3: Verify BatchPaymentRecorded event
-        const vReceipt = await Promise.race([
-          provider.getTransactionReceipt(verifierTxHash),
-          new Promise<null>((_, reject) => setTimeout(() => reject(new Error("RPC timeout")), 30_000)),
-        ]);
-        if (!vReceipt || vReceipt.status === 0) {
-          res.status(400).json({ error: "Verifier transaction failed or not found" });
-          return;
-        }
-
-        const batchIface = new ethers.Interface(BATCH_VERIFIER_EVENT_ABI);
-        let batchVerified = false;
-
-        // Explicit type guard before casting batch payload
-        if (
-          typeof rawPayload.requestCount !== "number" ||
-          rawPayload.requestCount <= 0 ||
-          typeof rawPayload.pricePerRequest !== "string" ||
-          !rawPayload.pricePerRequest
-        ) {
-          res.status(400).json({ error: "Invalid batch payload: missing requestCount or pricePerRequest" });
-          return;
-        }
-        // Reject zero or negative pricePerRequest
-        if (BigInt(rawPayload.pricePerRequest as string) <= 0n) {
-          res.status(400).json({ error: "Invalid batch payload: pricePerRequest must be > 0" });
-          return;
-        }
-        const batchPayload = rawPayload as unknown as FheBatchPaymentPayload;
-        const requiredPrice = BigInt(config.price);
-
-        for (const log of vReceipt.logs) {
-          if (log.address.toLowerCase() !== config.verifierAddress.toLowerCase()) continue;
-          try {
-            const parsed = batchIface.parseLog({ topics: log.topics as string[], data: log.data });
-            if (
-              parsed?.name === "BatchPaymentRecorded" &&
-              parsed.args[0].toLowerCase() === payerAddress.toLowerCase() &&
-              parsed.args[1].toLowerCase() === config.recipientAddress.toLowerCase() &&
-              parsed.args[2] === nonce
-            ) {
-              const eventRequestCount = Number(parsed.args[3]);
-              const eventPricePerRequest = BigInt(parsed.args[4]);
-
-              // Verify pricePerRequest >= required price
-              if (eventPricePerRequest < requiredPrice) {
-                res.status(400).json({
-                  error: `Insufficient pricePerRequest: ${eventPricePerRequest}, required ${requiredPrice}`,
-                });
-                return;
-              }
-
-              // Register credits (minus 1 for this request)
-              registerBatchCredits(
-                payerAddress,
-                config.recipientAddress,
-                nonce,
-                eventRequestCount - 1,
-                eventPricePerRequest
-              );
-
-              batchVerified = true;
-              break;
-            }
-          } catch {
-            // Event parsing expected to fail for non-matching logs
-            continue;
+      // ===== Check for existing batch credits =====
+      // NOTE: Batch credits are only consumed for known nonces that were already
+      // verified on-chain during initial registration. The nonce was added to the
+      // nonceStore when the batch was first registered, so a replay of an unknown
+      // nonce will be caught by the nonce check below. We still need to verify
+      // the nonce belongs to a registered batch before consuming credits.
+      if (isBatch) {
+        const key = batchCreditKey(payerAddress, nonce);
+        const creditEntry = batchCreditStore.get(key);
+        if (creditEntry && creditEntry.remaining > 0) {
+          // Verify this nonce was previously registered (not a forged credit claim)
+          // by checking that the batch credit store has a valid entry for this payer+nonce.
+          // The nonce was already added to nonceStore during initial batch registration.
+          const hasCredit = consumeBatchCredit(payerAddress, nonce);
+          if (hasCredit) {
+            // Credit consumed — allow through without on-chain verification
+            req.paymentInfo = {
+              from: payerAddress,
+              amount: String((rawPayload as unknown as FheBatchPaymentPayload).pricePerRequest),
+              asset: config.asset,
+              recipient: config.recipientAddress,
+              txHash: rawPayload.txHash as string,
+              verifierTxHash: (rawPayload.verifierTxHash as string) || "",
+              nonce,
+              blockNumber: 0, // batch credit — no new block
+            };
+            res.setHeader("X-Payment-TxHash", rawPayload.txHash as string);
+            res.setHeader("X-Batch-Credits-Remaining", String(getBatchCredits(payerAddress, nonce)));
+            next();
+            return;
           }
         }
+      }
 
-        if (!batchVerified) {
-          res.status(400).json({ error: "BatchPaymentRecorded event not found or mismatched" });
-          return;
-        }
-
-        req.paymentInfo = {
-          from: payerAddress,
-          amount: batchPayload.pricePerRequest,
-          asset: config.asset,
-          recipient: config.recipientAddress,
-          txHash,
-          verifierTxHash,
-          nonce,
-          blockNumber: receipt.blockNumber,
-        };
-
-        res.setHeader("X-Payment-TxHash", txHash);
-        res.setHeader("X-Batch-Credits-Remaining", String(getBatchCredits(payerAddress, nonce)));
-        next();
-      } else if (verifierTxHash) {
-        // V4.0/V4.1: Verify PaymentVerified event (single payment)
-        const vReceipt = await Promise.race([
-          provider.getTransactionReceipt(verifierTxHash),
-          new Promise<null>((_, reject) => setTimeout(() => reject(new Error("RPC timeout")), 30_000)),
-        ]);
-        if (!vReceipt || vReceipt.status === 0) {
-          res.status(400).json({ error: "Verifier transaction failed or not found" });
-          return;
-        }
-
-        const verifierIface = new ethers.Interface(VERIFIER_EVENT_ABI);
-        let nonceVerified = false;
-        const requiredPrice = BigInt(config.price);
-
-        for (const log of vReceipt.logs) {
-          if (log.address.toLowerCase() !== config.verifierAddress.toLowerCase()) continue;
-          try {
-            const parsed = verifierIface.parseLog({ topics: log.topics as string[], data: log.data });
-            if (
-              parsed?.name === "PaymentVerified" &&
-              parsed.args[0].toLowerCase() === payerAddress.toLowerCase() &&
-              parsed.args[1].toLowerCase() === config.recipientAddress.toLowerCase() &&
-              parsed.args[2] === nonce
-            ) {
-              const eventMinPrice = BigInt(parsed.args[3]);
-              if (eventMinPrice < requiredPrice) {
-                res.status(400).json({
-                  error: `Insufficient minPrice: committed ${eventMinPrice}, required ${requiredPrice}`,
-                });
-                return;
-              }
-              nonceVerified = true;
-              break;
-            }
-          } catch {
-            // Event parsing expected to fail for non-matching logs
-            continue;
+      // ===== Nonce replay prevention — always atomic to prevent TOCTOU race =====
+      if ("checkAndAdd" in nonceStore && typeof nonceStore.checkAndAdd === "function") {
+        const isNew = await nonceStore.checkAndAdd(nonce);
+        if (!isNew) {
+          // For batch: nonce already used but no credits left → 402
+          if (isBatch) {
+            res.status(402).json({ error: "Batch credits exhausted", nonce });
+            return;
           }
-        }
-
-        if (!nonceVerified) {
-          res.status(400).json({ error: "PaymentVerified event not found or mismatched" });
+          res.status(400).json({ error: "Nonce already used" });
           return;
         }
-
-        req.paymentInfo = {
-          from: payerAddress,
-          amount: String(config.price),
-          asset: config.asset,
-          recipient: config.recipientAddress,
-          txHash,
-          verifierTxHash,
-          nonce,
-          blockNumber: receipt.blockNumber,
-        };
-
-        res.setHeader("X-Payment-TxHash", txHash);
-        next();
       } else {
-        // V4.2 single-TX: PayAndRecordCompleted in same receipt as ConfidentialTransfer
-        const payAndRecordIface = new ethers.Interface(PAY_AND_RECORD_EVENT_ABI);
-        let singleTxVerified = false;
-        const requiredPrice = BigInt(config.price);
+        // Fallback: use atomic check-and-add pattern even with separate methods
+        const isNewNonce = await nonceStore.check(nonce);
+        if (!isNewNonce) {
+          if (isBatch) {
+            res.status(402).json({ error: "Batch credits exhausted", nonce });
+            return;
+          }
+          res.status(400).json({ error: "Nonce already used" });
+          return;
+        }
+        // Add immediately before any async work to minimize TOCTOU window
+        await nonceStore.add(nonce);
+      }
+
+      // ===== Verify on-chain events =====
+      try {
+        const txHash = rawPayload.txHash as string;
+        const receipt = await Promise.race([
+          provider.getTransactionReceipt(txHash),
+          new Promise<null>((_, reject) => setTimeout(() => reject(new Error("RPC timeout")), 30_000)),
+        ]);
+        if (!receipt || receipt.status === 0) {
+          res.status(400).json({ error: "Transaction failed or not found" });
+          return;
+        }
+
+        // Confirmation depth check
+        if (minConfirmations > 1) {
+          const currentBlock = await provider.getBlockNumber();
+          const confirmations = currentBlock - receipt.blockNumber + 1;
+          if (confirmations < minConfirmations) {
+            res.status(400).json({
+              error: `Insufficient confirmations: ${confirmations}/${minConfirmations}`,
+            });
+            return;
+          }
+        }
+
+        // Verify ConfidentialTransfer event
+        const tokenIface = new ethers.Interface(TOKEN_EVENT_ABI);
+        let transferVerified = false;
 
         for (const log of receipt.logs) {
-          if (log.address.toLowerCase() !== config.verifierAddress.toLowerCase()) continue;
+          if (log.address.toLowerCase() !== config.tokenAddress.toLowerCase()) continue;
           try {
-            const parsed = payAndRecordIface.parseLog({ topics: log.topics as string[], data: log.data });
+            const parsed = tokenIface.parseLog({ topics: log.topics as string[], data: log.data });
             if (
-              parsed?.name === "PayAndRecordCompleted" &&
+              parsed?.name === "ConfidentialTransfer" &&
               parsed.args[0].toLowerCase() === payerAddress.toLowerCase() &&
-              parsed.args[1].toLowerCase() === config.recipientAddress.toLowerCase() &&
-              parsed.args[2] === nonce
+              parsed.args[1].toLowerCase() === config.recipientAddress.toLowerCase()
             ) {
-              if (parsed.args[3].toLowerCase() !== config.tokenAddress.toLowerCase()) {
-                continue;
-              }
-              const eventMinPrice = BigInt(parsed.args[4]);
-              if (eventMinPrice < requiredPrice) {
-                res.status(400).json({
-                  error: `Insufficient minPrice: committed ${eventMinPrice}, required ${requiredPrice}`,
-                });
-                return;
-              }
-              singleTxVerified = true;
+              transferVerified = true;
               break;
             }
           } catch {
@@ -962,33 +771,225 @@ export function fheBatchPaywall(config: FhePaywallConfig): RequestHandler {
           }
         }
 
-        if (!singleTxVerified) {
-          res.status(400).json({ error: "PayAndRecordCompleted event not found or mismatched" });
+        if (!transferVerified) {
+          res.status(400).json({ error: "ConfidentialTransfer event not found or mismatched" });
           return;
         }
 
-        req.paymentInfo = {
-          from: payerAddress,
-          amount: String(config.price),
-          asset: config.asset,
-          recipient: config.recipientAddress,
-          txHash,
-          verifierTxHash: "",
-          nonce,
-          blockNumber: receipt.blockNumber,
-        };
+        // ===== Batch vs single verification =====
+        const verifierTxHash = rawPayload.verifierTxHash as string;
 
-        res.setHeader("X-Payment-TxHash", txHash);
-        next();
+        if (isBatch && verifierTxHash) {
+          // V4.3: Verify BatchPaymentRecorded event
+          const vReceipt = await Promise.race([
+            provider.getTransactionReceipt(verifierTxHash),
+            new Promise<null>((_, reject) => setTimeout(() => reject(new Error("RPC timeout")), 30_000)),
+          ]);
+          if (!vReceipt || vReceipt.status === 0) {
+            res.status(400).json({ error: "Verifier transaction failed or not found" });
+            return;
+          }
+
+          const batchIface = new ethers.Interface(BATCH_VERIFIER_EVENT_ABI);
+          let batchVerified = false;
+
+          // Explicit type guard before casting batch payload
+          if (
+            typeof rawPayload.requestCount !== "number" ||
+            rawPayload.requestCount <= 0 ||
+            typeof rawPayload.pricePerRequest !== "string" ||
+            !rawPayload.pricePerRequest
+          ) {
+            res.status(400).json({ error: "Invalid batch payload: missing requestCount or pricePerRequest" });
+            return;
+          }
+          // Reject zero or negative pricePerRequest
+          if (BigInt(rawPayload.pricePerRequest as string) <= 0n) {
+            res.status(400).json({ error: "Invalid batch payload: pricePerRequest must be > 0" });
+            return;
+          }
+          const batchPayload = rawPayload as unknown as FheBatchPaymentPayload;
+          const requiredPrice = BigInt(config.price);
+
+          for (const log of vReceipt.logs) {
+            if (log.address.toLowerCase() !== config.verifierAddress.toLowerCase()) continue;
+            try {
+              const parsed = batchIface.parseLog({ topics: log.topics as string[], data: log.data });
+              if (
+                parsed?.name === "BatchPaymentRecorded" &&
+                parsed.args[0].toLowerCase() === payerAddress.toLowerCase() &&
+                parsed.args[1].toLowerCase() === config.recipientAddress.toLowerCase() &&
+                parsed.args[2] === nonce
+              ) {
+                const eventRequestCount = Number(parsed.args[3]);
+                const eventPricePerRequest = BigInt(parsed.args[4]);
+
+                // Verify pricePerRequest >= required price
+                if (eventPricePerRequest < requiredPrice) {
+                  res.status(400).json({
+                    error: `Insufficient pricePerRequest: ${eventPricePerRequest}, required ${requiredPrice}`,
+                  });
+                  return;
+                }
+
+                // Register credits (minus 1 for this request)
+                registerBatchCredits(
+                  payerAddress,
+                  config.recipientAddress,
+                  nonce,
+                  eventRequestCount - 1,
+                  eventPricePerRequest
+                );
+
+                batchVerified = true;
+                break;
+              }
+            } catch {
+              // Event parsing expected to fail for non-matching logs
+              continue;
+            }
+          }
+
+          if (!batchVerified) {
+            res.status(400).json({ error: "BatchPaymentRecorded event not found or mismatched" });
+            return;
+          }
+
+          req.paymentInfo = {
+            from: payerAddress,
+            amount: batchPayload.pricePerRequest,
+            asset: config.asset,
+            recipient: config.recipientAddress,
+            txHash,
+            verifierTxHash,
+            nonce,
+            blockNumber: receipt.blockNumber,
+          };
+
+          res.setHeader("X-Payment-TxHash", txHash);
+          res.setHeader("X-Batch-Credits-Remaining", String(getBatchCredits(payerAddress, nonce)));
+          next();
+        } else if (verifierTxHash) {
+          // V4.0/V4.1: Verify PaymentVerified event (single payment)
+          const vReceipt = await Promise.race([
+            provider.getTransactionReceipt(verifierTxHash),
+            new Promise<null>((_, reject) => setTimeout(() => reject(new Error("RPC timeout")), 30_000)),
+          ]);
+          if (!vReceipt || vReceipt.status === 0) {
+            res.status(400).json({ error: "Verifier transaction failed or not found" });
+            return;
+          }
+
+          const verifierIface = new ethers.Interface(VERIFIER_EVENT_ABI);
+          let nonceVerified = false;
+          const requiredPrice = BigInt(config.price);
+
+          for (const log of vReceipt.logs) {
+            if (log.address.toLowerCase() !== config.verifierAddress.toLowerCase()) continue;
+            try {
+              const parsed = verifierIface.parseLog({ topics: log.topics as string[], data: log.data });
+              if (
+                parsed?.name === "PaymentVerified" &&
+                parsed.args[0].toLowerCase() === payerAddress.toLowerCase() &&
+                parsed.args[1].toLowerCase() === config.recipientAddress.toLowerCase() &&
+                parsed.args[2] === nonce
+              ) {
+                const eventMinPrice = BigInt(parsed.args[3]);
+                if (eventMinPrice < requiredPrice) {
+                  res.status(400).json({
+                    error: `Insufficient minPrice: committed ${eventMinPrice}, required ${requiredPrice}`,
+                  });
+                  return;
+                }
+                nonceVerified = true;
+                break;
+              }
+            } catch {
+              // Event parsing expected to fail for non-matching logs
+              continue;
+            }
+          }
+
+          if (!nonceVerified) {
+            res.status(400).json({ error: "PaymentVerified event not found or mismatched" });
+            return;
+          }
+
+          req.paymentInfo = {
+            from: payerAddress,
+            amount: String(config.price),
+            asset: config.asset,
+            recipient: config.recipientAddress,
+            txHash,
+            verifierTxHash,
+            nonce,
+            blockNumber: receipt.blockNumber,
+          };
+
+          res.setHeader("X-Payment-TxHash", txHash);
+          next();
+        } else {
+          // V4.2 single-TX: PayAndRecordCompleted in same receipt as ConfidentialTransfer
+          const payAndRecordIface = new ethers.Interface(PAY_AND_RECORD_EVENT_ABI);
+          let singleTxVerified = false;
+          const requiredPrice = BigInt(config.price);
+
+          for (const log of receipt.logs) {
+            if (log.address.toLowerCase() !== config.verifierAddress.toLowerCase()) continue;
+            try {
+              const parsed = payAndRecordIface.parseLog({ topics: log.topics as string[], data: log.data });
+              if (
+                parsed?.name === "PayAndRecordCompleted" &&
+                parsed.args[0].toLowerCase() === payerAddress.toLowerCase() &&
+                parsed.args[1].toLowerCase() === config.recipientAddress.toLowerCase() &&
+                parsed.args[2] === nonce
+              ) {
+                if (parsed.args[3].toLowerCase() !== config.tokenAddress.toLowerCase()) {
+                  continue;
+                }
+                const eventMinPrice = BigInt(parsed.args[4]);
+                if (eventMinPrice < requiredPrice) {
+                  res.status(400).json({
+                    error: `Insufficient minPrice: committed ${eventMinPrice}, required ${requiredPrice}`,
+                  });
+                  return;
+                }
+                singleTxVerified = true;
+                break;
+              }
+            } catch {
+              // Event parsing expected to fail for non-matching logs
+              continue;
+            }
+          }
+
+          if (!singleTxVerified) {
+            res.status(400).json({ error: "PayAndRecordCompleted event not found or mismatched" });
+            return;
+          }
+
+          req.paymentInfo = {
+            from: payerAddress,
+            amount: String(config.price),
+            asset: config.asset,
+            recipient: config.recipientAddress,
+            txHash,
+            verifierTxHash: "",
+            nonce,
+            blockNumber: receipt.blockNumber,
+          };
+
+          res.setHeader("X-Payment-TxHash", txHash);
+          next();
+        }
+      } catch (err) {
+        if (err instanceof Error && err.message === "RPC timeout") {
+          res.status(504).json({ error: "RPC timeout during payment verification" });
+          return;
+        }
+        console.error("[fhe-x402] Batch verification failed:", err instanceof Error ? err.message : err);
+        res.status(500).json({ error: "Payment verification failed" });
       }
-    } catch (err) {
-      if (err instanceof Error && err.message === "RPC timeout") {
-        res.status(504).json({ error: "RPC timeout during payment verification" });
-        return;
-      }
-      console.error("[fhe-x402] Batch verification failed:", err instanceof Error ? err.message : err);
-      res.status(500).json({ error: "Payment verification failed" });
-    }
     } finally {
       // [C2] Always release nonce mutex
       pendingBatchNonces.delete(nonce);

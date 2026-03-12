@@ -113,10 +113,7 @@ export interface FheFetchOptions extends RequestInit {
 
 /** Minimal @zama-fhe/relayer-sdk interface (avoid hard dependency) */
 export interface FhevmInstance {
-  createEncryptedInput: (
-    contractAddress: string,
-    userAddress: string
-  ) => FhevmEncryptedInput;
+  createEncryptedInput: (contractAddress: string, userAddress: string) => FhevmEncryptedInput;
 }
 
 export interface FhevmEncryptedInput {

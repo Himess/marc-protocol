@@ -10,11 +10,7 @@ export async function run(args: Record<string, string>): Promise<string> {
 
     const { token } = await getContracts();
 
-    const tx = await token.finalizeUnwrap(
-      burntAmount,
-      BigInt(cleartextAmount),
-      decryptionProof
-    );
+    const tx = await token.finalizeUnwrap(burntAmount, BigInt(cleartextAmount), decryptionProof);
     const receipt = await tx.wait();
 
     return ok({

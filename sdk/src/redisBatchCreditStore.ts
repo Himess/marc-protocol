@@ -86,7 +86,13 @@ export class RedisBatchCreditStore implements BatchCreditStore {
     }
   }
 
-  async register(payer: string, server: string, nonce: string, requestCount: number, pricePerRequest: string): Promise<void> {
+  async register(
+    payer: string,
+    server: string,
+    nonce: string,
+    requestCount: number,
+    pricePerRequest: string
+  ): Promise<void> {
     const k = this.key(payer, nonce);
     // NX — don't overwrite existing credits
     const existing = await this.redis.get(k);

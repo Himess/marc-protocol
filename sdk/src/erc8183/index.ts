@@ -52,11 +52,7 @@ const BPS = 10_000n;
  * Encode a structured job description into a formatted string.
  * Used as the `description` parameter in createJob.
  */
-export function encodeJobDescription(
-  title: string,
-  details: string,
-  requirements: string[]
-): string {
+export function encodeJobDescription(title: string, details: string, requirements: string[]): string {
   if (title.includes("|") || details.includes("|")) {
     throw new Error("Job description fields must not contain '|' character");
   }
@@ -129,11 +125,7 @@ export function createJobParams(config: {
     provider: config.provider,
     evaluator: config.evaluator,
     expiredAt: config.expiredAt,
-    description: encodeJobDescription(
-      config.title,
-      config.details,
-      config.requirements
-    ),
+    description: encodeJobDescription(config.title, config.details, config.requirements),
     hook: config.hook || "0x0000000000000000000000000000000000000000",
   };
 }
@@ -212,17 +204,8 @@ export function connectACP(address: string, signer: Signer): Contract {
  * Create a job on the AgenticCommerceProtocol.
  * Calls createJob() on-chain and returns the jobId from the event.
  */
-export async function createJob(
-  acp: Contract,
-  params: JobParams
-): Promise<{ jobId: bigint; txHash: string }> {
-  const tx = await acp.createJob(
-    params.provider,
-    params.evaluator,
-    params.expiredAt,
-    params.description,
-    params.hook
-  );
+export async function createJob(acp: Contract, params: JobParams): Promise<{ jobId: bigint; txHash: string }> {
+  const tx = await acp.createJob(params.provider, params.evaluator, params.expiredAt, params.description, params.hook);
   const receipt = await tx.wait();
 
   // Parse JobCreated event to get jobId
@@ -232,7 +215,9 @@ export async function createJob(
       if (parsed?.name === "JobCreated") {
         return { jobId: BigInt(parsed.args[0]), txHash: receipt.hash };
       }
-    } catch { continue; }
+    } catch {
+      continue;
+    }
   }
 
   throw new Error("JobCreated event not found in receipt");
@@ -241,11 +226,7 @@ export async function createJob(
 /**
  * Set budget for a job. Client only.
  */
-export async function setBudget(
-  acp: Contract,
-  jobId: bigint | number,
-  amount: bigint
-): Promise<string> {
+export async function setBudget(acp: Contract, jobId: bigint | number, amount: bigint): Promise<string> {
   const tx = await acp.setBudget(jobId, amount);
   const receipt = await tx.wait();
   return receipt.hash;
@@ -255,11 +236,7 @@ export async function setBudget(
  * Fund a job (transfer payment token to escrow). Client only.
  * expectedBudget must match current budget to prevent front-running.
  */
-export async function fundJob(
-  acp: Contract,
-  jobId: bigint | number,
-  expectedBudget: bigint
-): Promise<string> {
+export async function fundJob(acp: Contract, jobId: bigint | number, expectedBudget: bigint): Promise<string> {
   const tx = await acp.fund(jobId, expectedBudget);
   const receipt = await tx.wait();
   return receipt.hash;
@@ -268,11 +245,7 @@ export async function fundJob(
 /**
  * Submit a deliverable for a funded job. Provider only.
  */
-export async function submitDeliverable(
-  acp: Contract,
-  jobId: bigint | number,
-  deliverable: string
-): Promise<string> {
+export async function submitDeliverable(acp: Contract, jobId: bigint | number, deliverable: string): Promise<string> {
   const tx = await acp.submit(jobId, deliverable);
   const receipt = await tx.wait();
   return receipt.hash;
@@ -295,11 +268,7 @@ export async function completeJob(
 /**
  * Reject a job and refund if funded. Client or evaluator.
  */
-export async function rejectJob(
-  acp: Contract,
-  jobId: bigint | number,
-  reason: string
-): Promise<string> {
+export async function rejectJob(acp: Contract, jobId: bigint | number, reason: string): Promise<string> {
   const tx = await acp.reject(jobId, reason);
   const receipt = await tx.wait();
   return receipt.hash;
@@ -308,10 +277,7 @@ export async function rejectJob(
 /**
  * Claim refund for an expired job. Client only.
  */
-export async function claimRefund(
-  acp: Contract,
-  jobId: bigint | number
-): Promise<string> {
+export async function claimRefund(acp: Contract, jobId: bigint | number): Promise<string> {
   const tx = await acp.claimRefund(jobId);
   const receipt = await tx.wait();
   return receipt.hash;

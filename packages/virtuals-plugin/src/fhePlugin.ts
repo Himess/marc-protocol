@@ -95,23 +95,11 @@ class FhePlugin {
     const provider = new JsonRpcProvider(rpc);
     this.signer = new Wallet(this.credentials.privateKey, provider);
 
-    this.token = new Contract(
-      this.credentials.tokenAddress,
-      TOKEN_ABI,
-      this.signer
-    );
+    this.token = new Contract(this.credentials.tokenAddress, TOKEN_ABI, this.signer);
 
-    this.verifier = new Contract(
-      this.credentials.verifierAddress,
-      VERIFIER_ABI,
-      this.signer
-    );
+    this.verifier = new Contract(this.credentials.verifierAddress, VERIFIER_ABI, this.signer);
 
-    this.usdc = new Contract(
-      this.credentials.usdcAddress || DEFAULT_USDC,
-      USDC_ABI,
-      this.signer
-    );
+    this.usdc = new Contract(this.credentials.usdcAddress || DEFAULT_USDC, USDC_ABI, this.signer);
   }
 
   // ============================================================================
@@ -134,10 +122,7 @@ class FhePlugin {
         try {
           const amountStr = args.amount;
           if (!amountStr) {
-            return new ExecutableGameFunctionResponse(
-              ExecutableGameFunctionStatus.Failed,
-              "Amount is required"
-            );
+            return new ExecutableGameFunctionResponse(ExecutableGameFunctionStatus.Failed, "Amount is required");
           }
 
           const amountFloat = parseFloat(amountStr);
@@ -155,10 +140,7 @@ class FhePlugin {
           const signerAddress = await signer.getAddress();
 
           // Approve USDC to token contract
-          const approveTx = await usdc.approve(
-            self.credentials.tokenAddress,
-            rawAmount
-          );
+          const approveTx = await usdc.approve(self.credentials.tokenAddress, rawAmount);
           await approveTx.wait();
 
           // Wrap (plaintext -- no FHE encryption needed for wrap)
@@ -178,10 +160,7 @@ class FhePlugin {
           );
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
-          return new ExecutableGameFunctionResponse(
-            ExecutableGameFunctionStatus.Failed,
-            `Wrap failed: ${msg}`
-          );
+          return new ExecutableGameFunctionResponse(ExecutableGameFunctionStatus.Failed, `Wrap failed: ${msg}`);
         }
       },
     });
@@ -208,7 +187,8 @@ class FhePlugin {
         },
         {
           name: "nonce",
-          description: "Payment nonce for verifier (hex string, e.g. '0xabc...'). If omitted, a random nonce is generated.",
+          description:
+            "Payment nonce for verifier (hex string, e.g. '0xabc...'). If omitted, a random nonce is generated.",
         },
       ] as const,
       executable: async (args, logger) => {
@@ -258,19 +238,11 @@ class FhePlugin {
           logger(`Paying ${amountStr} USDC to ${to}...`);
 
           // Confidential transfer on token
-          const tx = await token.confidentialTransfer(
-            to,
-            encrypted.handles[0],
-            encrypted.inputProof
-          );
+          const tx = await token.confidentialTransfer(to, encrypted.handles[0], encrypted.inputProof);
           const receipt = await tx.wait();
 
           // Record payment in verifier
-          const verifierTx = await verifier.recordPayment(
-            to,
-            nonce,
-            rawAmount
-          );
+          const verifierTx = await verifier.recordPayment(to, nonce, rawAmount);
           const verifierReceipt = await verifierTx.wait();
 
           logger(`Payment confirmed: TX ${receipt.hash}, Verifier TX ${verifierReceipt.hash}`);
@@ -289,10 +261,7 @@ class FhePlugin {
           );
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
-          return new ExecutableGameFunctionResponse(
-            ExecutableGameFunctionStatus.Failed,
-            `Payment failed: ${msg}`
-          );
+          return new ExecutableGameFunctionResponse(ExecutableGameFunctionStatus.Failed, `Payment failed: ${msg}`);
         }
       },
     });
@@ -318,10 +287,7 @@ class FhePlugin {
         try {
           const amountStr = args.amount;
           if (!amountStr) {
-            return new ExecutableGameFunctionResponse(
-              ExecutableGameFunctionStatus.Failed,
-              "Amount is required"
-            );
+            return new ExecutableGameFunctionResponse(ExecutableGameFunctionStatus.Failed, "Amount is required");
           }
 
           const amountFloat = parseFloat(amountStr);
@@ -348,12 +314,7 @@ class FhePlugin {
 
           logger(`Requesting unwrap of ${amountStr} USDC...`);
 
-          const tx = await token.unwrap(
-            signerAddress,
-            signerAddress,
-            encrypted.handles[0],
-            encrypted.inputProof
-          );
+          const tx = await token.unwrap(signerAddress, signerAddress, encrypted.handles[0], encrypted.inputProof);
           const receipt = await tx.wait();
 
           logger(`Unwrap requested: TX ${receipt.hash}. Waiting for KMS finalization.`);
@@ -404,7 +365,9 @@ class FhePlugin {
           let encryptedBalanceHandle: string = "0x" + "00".repeat(32);
           try {
             encryptedBalanceHandle = await token.confidentialBalanceOf(address);
-          } catch { /* confidentialBalanceOf may not be available in mock */ }
+          } catch {
+            /* confidentialBalanceOf may not be available in mock */
+          }
 
           const hasEncryptedBalance = encryptedBalanceHandle !== "0x" + "00".repeat(32);
 
@@ -470,11 +433,7 @@ class FhePlugin {
 
           const { token } = await self.getContracts();
 
-          const tx = await token.finalizeUnwrap(
-            args.burntAmount,
-            BigInt(args.cleartextAmount),
-            args.decryptionProof
-          );
+          const tx = await token.finalizeUnwrap(args.burntAmount, BigInt(args.cleartextAmount), args.decryptionProof);
           const receipt = await tx.wait();
 
           logger(`Unwrap finalized: TX ${receipt.hash}`);
@@ -530,10 +489,7 @@ class FhePlugin {
           );
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
-          return new ExecutableGameFunctionResponse(
-            ExecutableGameFunctionStatus.Failed,
-            `Info failed: ${msg}`
-          );
+          return new ExecutableGameFunctionResponse(ExecutableGameFunctionStatus.Failed, `Info failed: ${msg}`);
         }
       },
     });

@@ -24,12 +24,7 @@ export async function run(args: Record<string, string>): Promise<string> {
     const encrypted = await input.encrypt();
 
     // Unwrap cUSDC -> USDC (2-step: request then KMS finalizes)
-    const tx = await token.unwrap(
-      signerAddress,
-      signerAddress,
-      encrypted.handles[0],
-      encrypted.inputProof
-    );
+    const tx = await token.unwrap(signerAddress, signerAddress, encrypted.handles[0], encrypted.inputProof);
     const receipt = await tx.wait();
 
     return ok({

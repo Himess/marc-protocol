@@ -20,9 +20,7 @@ import { ethers } from "ethers";
 
 const ZERO_HANDLE = "0x" + "00".repeat(32);
 
-const BALANCE_ABI = [
-  "function confidentialBalanceOf(address account) external view returns (bytes32)",
-];
+const BALANCE_ABI = ["function confidentialBalanceOf(address account) external view returns (bytes32)"];
 
 export interface SilentFailureCheckResult {
   /** Whether the transfer likely succeeded (heuristic, not guaranteed) */

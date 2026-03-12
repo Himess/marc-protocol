@@ -56,13 +56,7 @@ export class RedisNonceStore implements NonceStore {
   async checkAndAdd(nonce: string): Promise<boolean> {
     // SET key value EX ttl NX — only sets if key does NOT exist
     // Returns "OK" if set, null if key already existed
-    const result = await this.redis.set(
-      this.prefix + nonce,
-      "1",
-      "EX",
-      this.ttlSeconds,
-      "NX"
-    );
+    const result = await this.redis.set(this.prefix + nonce, "1", "EX", this.ttlSeconds, "NX");
     return result === "OK";
   }
 }

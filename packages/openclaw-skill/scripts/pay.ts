@@ -34,11 +34,7 @@ export async function run(args: Record<string, string>): Promise<string> {
     const nonce = ethers.hexlify(ethers.randomBytes(32));
 
     // Confidential transfer via token contract
-    const tx = await token.confidentialTransfer(
-      to,
-      encrypted.handles[0],
-      encrypted.inputProof
-    );
+    const tx = await token.confidentialTransfer(to, encrypted.handles[0], encrypted.inputProof);
     const receipt = await tx.wait();
 
     // Record payment on verifier contract

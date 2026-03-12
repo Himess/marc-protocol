@@ -12,9 +12,7 @@ vi.mock("fhe-x402-sdk", () => ({
     "function confidentialBalanceOf(address account) external view returns (bytes32)",
     "function finalizeUnwrap(bytes32 burntAmount, uint64 cleartextAmount, bytes calldata decryptionProof) external",
   ],
-  VERIFIER_ABI: [
-    "function recordPayment(address server, bytes32 nonce, uint64 minPrice) external",
-  ],
+  VERIFIER_ABI: ["function recordPayment(address server, bytes32 nonce, uint64 minPrice) external"],
 }));
 
 // Mock @zama-fhe/relayer-sdk — simulates createEncryptedInput().add64().encrypt()
@@ -186,18 +184,12 @@ describe("wrap script", () => {
     expect(data.txHash).toBe("0xabc123");
     expect(data.blockNumber).toBe(12345);
     expect(mockApprove).toHaveBeenCalled();
-    expect(mockWrap).toHaveBeenCalledWith(
-      "0x1234567890abcdef1234567890abcdef12345678",
-      2_000_000n
-    );
+    expect(mockWrap).toHaveBeenCalledWith("0x1234567890abcdef1234567890abcdef12345678", 2_000_000n);
   });
 
   it("wraps fractional USDC", async () => {
     await runWrap({ amount: "0.5" });
-    expect(mockWrap).toHaveBeenCalledWith(
-      "0x1234567890abcdef1234567890abcdef12345678",
-      500_000n
-    );
+    expect(mockWrap).toHaveBeenCalledWith("0x1234567890abcdef1234567890abcdef12345678", 500_000n);
   });
 
   it("fails when amount is missing", async () => {
@@ -462,11 +454,7 @@ describe("finalizeUnwrap script", () => {
     expect(data.cleartextAmount).toBe("1000000");
     expect(data.txHash).toBe("0xfinalize123");
     expect(data.blockNumber).toBe(12349);
-    expect(mockFinalizeUnwrap).toHaveBeenCalledWith(
-      "0x" + "aa".repeat(32),
-      1_000_000n,
-      "0x" + "bb".repeat(64)
-    );
+    expect(mockFinalizeUnwrap).toHaveBeenCalledWith("0x" + "aa".repeat(32), 1_000_000n, "0x" + "bb".repeat(64));
   });
 
   it("fails when burntAmount is missing", async () => {

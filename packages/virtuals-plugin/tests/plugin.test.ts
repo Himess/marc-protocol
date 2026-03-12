@@ -56,9 +56,7 @@ vi.mock("fhe-x402-sdk", () => ({
     "function confidentialTransfer(address to, externalEuint64 encryptedAmount, bytes calldata inputProof) external",
     "function unwrap(address from, address to, externalEuint64 encryptedAmount, bytes calldata inputProof) external",
   ],
-  VERIFIER_ABI: [
-    "function recordPayment(address server, bytes32 nonce, uint64 minPrice) external",
-  ],
+  VERIFIER_ABI: ["function recordPayment(address server, bytes32 nonce, uint64 minPrice) external"],
 }));
 
 import { FhePlugin } from "../src/fhePlugin";
@@ -211,19 +209,13 @@ describe("fhe_wrap", () => {
     expect(data.txHash).toBe("0xabc123");
     expect(data.blockNumber).toBe(12345);
     expect(mockApprove).toHaveBeenCalled();
-    expect(mockWrap).toHaveBeenCalledWith(
-      "0x1234567890abcdef1234567890abcdef12345678",
-      2_000_000n
-    );
+    expect(mockWrap).toHaveBeenCalledWith("0x1234567890abcdef1234567890abcdef12345678", 2_000_000n);
   });
 
   it("wraps fractional USDC", async () => {
     const fn = plugin.wrapFunction;
     await fn.executable({ amount: "0.5" } as any, noopLogger);
-    expect(mockWrap).toHaveBeenCalledWith(
-      "0x1234567890abcdef1234567890abcdef12345678",
-      500_000n
-    );
+    expect(mockWrap).toHaveBeenCalledWith("0x1234567890abcdef1234567890abcdef12345678", 500_000n);
   });
 
   it("fails when amount is missing", async () => {
@@ -314,7 +306,7 @@ describe("fhe_pay", () => {
     expect(mockConfidentialTransfer).toHaveBeenCalledWith(
       "0x1234567890abcdef1234567890abcdef12345678",
       "0x" + "ff".repeat(32), // encrypted handle from fhevmjs
-      "0x" + "ee".repeat(64)  // input proof from fhevmjs
+      "0x" + "ee".repeat(64) // input proof from fhevmjs
     );
     // Verify verifier.recordPayment was called (3 params: server, nonce, minPrice)
     expect(mockRecordPayment).toHaveBeenCalledWith(
@@ -326,10 +318,7 @@ describe("fhe_pay", () => {
 
   it("fails when to address is missing", async () => {
     const fn = plugin.payFunction;
-    const result = await fn.executable(
-      { to: undefined, amount: "1" } as any,
-      noopLogger
-    );
+    const result = await fn.executable({ to: undefined, amount: "1" } as any, noopLogger);
 
     expect(result.status).toBe(ExecutableGameFunctionStatus.Failed);
     expect(result.feedback).toContain("required");
@@ -348,10 +337,7 @@ describe("fhe_pay", () => {
 
   it("fails when address is invalid", async () => {
     const fn = plugin.payFunction;
-    const result = await fn.executable(
-      { to: "not-an-address", amount: "1" } as any,
-      noopLogger
-    );
+    const result = await fn.executable({ to: "not-an-address", amount: "1" } as any, noopLogger);
 
     expect(result.status).toBe(ExecutableGameFunctionStatus.Failed);
     expect(result.feedback).toContain("Invalid Ethereum address");
@@ -578,11 +564,7 @@ describe("fhe_finalize_unwrap", () => {
     expect(data.cleartextAmount).toBe("1000000");
     expect(data.txHash).toBe("0xfinalize123");
     expect(data.blockNumber).toBe(12349);
-    expect(mockFinalizeUnwrap).toHaveBeenCalledWith(
-      "0x" + "ab".repeat(32),
-      1_000_000n,
-      "0x" + "cd".repeat(64)
-    );
+    expect(mockFinalizeUnwrap).toHaveBeenCalledWith("0x" + "ab".repeat(32), 1_000_000n, "0x" + "cd".repeat(64));
   });
 
   it("fails when burntAmount is missing", async () => {
