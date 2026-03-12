@@ -43,7 +43,7 @@ Client (Agent A)                          Server (Agent B)
     |-- GET /api/data ----------------------->|
     |<--- 402 + FhePaymentRequired ------------|
     |                                          |
-    |  1. fhevmjs.encrypt(amount)              |
+    |  1. fhevm.encrypt(amount)                |
     |  2. cUSDC.confidentialTransfer(to, enc)  |
     |  3. verifier.recordPayment(              |
     |       payer, server, nonce, minPrice)    |
@@ -83,16 +83,16 @@ npm install
 # Compile contracts
 npx hardhat compile
 
-# Run contract tests (78 tests — fast, mock FHE, no ETH needed)
+# Run contract tests (305 tests — fast, mock FHE, no ETH needed)
 npx hardhat test
 
-# Build + test SDK (84 tests)
+# Build + test SDK (173 tests)
 cd sdk && npm install && npx tsup && npx vitest run
 
-# Test Virtuals plugin (30 tests)
+# Test Virtuals plugin (37 tests)
 cd packages/virtuals-plugin && npm install && npx vitest run
 
-# Test OpenClaw skill (25 tests)
+# Test OpenClaw skill (31 tests)
 cd packages/openclaw-skill && npm install && npx vitest run
 
 # Build frontend
@@ -300,7 +300,7 @@ See `examples/redis-nonce-store.ts` for a complete Redis implementation.
 ### Virtuals GAME Plugin
 
 ```typescript
-import { FhePlugin } from "@fhe-x402/virtuals-plugin";
+import { FhePlugin } from "@marc-protocol/virtuals-plugin";
 
 const plugin = new FhePlugin({
   credentials: {
@@ -360,7 +360,7 @@ See `examples/eliza-plugin/` for a complete ElizaOS integration example with 3 a
      }]
    }
 
-3. Agent A encrypts the payment amount using fhevmjs:
+3. Agent A encrypts the payment amount using @zama-fhe/relayer-sdk:
    input.add64(amount).encrypt() → { handles, inputProof }
 
 4. Agent A sends TX 1: cUSDC.confidentialTransfer(to, handles[0], inputProof)
@@ -404,7 +404,7 @@ marc-protocol/
 │   │   └── IConfidentialUSDC.sol     # Fee + admin interface
 │   └── mocks/
 │       └── MockUSDC.sol              # Test token (6 decimals)
-├── test/                             # 241 Hardhat + 144 Sepolia on-chain tests
+├── test/                             # 305 Hardhat + 328 Sepolia on-chain tests
 │   ├── ConfidentialUSDC.test.ts
 │   ├── X402PaymentVerifier.test.ts
 │   ├── AgenticCommerceProtocol.test.ts
@@ -525,7 +525,7 @@ See [docs/SECURITY.md](docs/SECURITY.md) for the full threat model and audit his
 
 ## Tech Stack
 
-- Solidity 0.8.27 + `@fhevm/solidity@0.10` + `@fhevm/hardhat-plugin@0.4.0`
+- Solidity 0.8.24 + `@fhevm/solidity@0.10` + `@fhevm/hardhat-plugin@0.4.0`
 - OpenZeppelin Confidential Contracts (ERC-7984, ERC7984ERC20Wrapper)
 - TypeScript SDK with `ethers@6` + `tsup` (ESM/CJS)
 - Hardhat with viaIR optimizer, Cancun EVM
