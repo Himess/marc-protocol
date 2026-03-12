@@ -5,6 +5,8 @@
 ![Chain](https://img.shields.io/badge/chain-Ethereum%20Sepolia-purple)
 ![SDK](https://img.shields.io/badge/npm-marc--protocol--sdk-red)
 
+**[Live Demo](https://marc-protocol.vercel.app)** · **[Video Pitch](https://youtube.com/TODO)** · **[Lightpaper](docs/LIGHTPAPER.md)** · **[Audit Report](docs/AUDIT-FINDINGS-V4.3.md)**
+
 ## Overview
 
 MARC Protocol is a privacy-preserving payment infrastructure for AI agents. Built on **Zama's fhEVM** and the **x402 payment standard**, it uses Fully Homomorphic Encryption to hide payment amounts on-chain while keeping sender and recipient addresses public (as required by x402).
