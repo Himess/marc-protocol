@@ -1,4 +1,4 @@
-# MARC Protocol — Modular Agent-Ready Confidential Protocol
+# MARC Protocol. The Privacy Layer for Agent Payments
 
 ![Tests](https://img.shields.io/badge/tests-800+-brightgreen)
 ![License](https://img.shields.io/badge/license-BUSL--1.1-blue)
@@ -9,35 +9,59 @@
 
 ## Overview
 
-MARC Protocol is a privacy-preserving payment infrastructure for AI agents. Built on **Zama's fhEVM** and the **x402 payment standard**, it uses Fully Homomorphic Encryption to hide payment amounts on-chain while keeping sender and recipient addresses public (as required by x402).
+MARC Protocol is the privacy layer for AI agent payments. Built on **Zama's fhEVM**, it uses Fully Homomorphic Encryption to hide payment amounts and balances on-chain. MARC works under **any agent payment framework**: x402, MCP, MPP, A2A (Agent-to-Agent), AgentKit, Virtuals GAME, and OpenClaw. Wherever agents pay, MARC encrypts.
 
 **Scheme:** `fhe-confidential-v1` | **Chain:** Ethereum Sepolia (11155111) | **Tests:** 800+ (305 contract + 328 Sepolia on-chain + 173 SDK + 37 Virtuals + 31 OpenClaw)
 
 ### Why MARC?
 
-AI agents are already transacting at scale — **$166M+ x402 volume across chains** (Dune Analytics, Q1 2026). But every payment amount, every balance, every transaction outcome is **publicly visible on-chain**. Competitors can see your API spend, your pricing strategy, your customer base.
+AI agents are already transacting at scale. **$166M+ in x402 volume across chains** (Dune Analytics, Q1 2026), and new agent payment standards like MCP, MPP, and A2A are emerging rapidly. But every payment amount, every balance, every transaction outcome is **publicly visible on-chain**. Competitors can see your API spend, your pricing strategy, your customer base.
 
-MARC Protocol encrypts what matters: **amounts and balances are FHE-encrypted**, while participants remain public for x402 compliance.
+MARC Protocol encrypts what matters: **amounts and balances are FHE-encrypted**, while participant addresses remain public for protocol compliance. It is not tied to any single payment standard. MARC sits underneath x402, MCP, MPP, A2A, AgentKit, Virtuals GAME, OpenClaw, and any future agent payment framework.
 
-### Multi-Chain Vision
+### Multi-Chain, Multi-VM Vision
 
-Zama's fhEVM is **chain-agnostic** — it deploys as a coprocessor on any EVM chain. This means MARC Protocol works **everywhere Zama goes**:
+Zama's fhEVM is **not limited to EVM**. Zama is expanding to Solana (SVM) and other virtual machines. MARC Protocol follows wherever Zama deploys.
 
-| Chain | Status | Impact |
-|-------|--------|--------|
+| Chain / VM | Status | Impact |
+|------------|--------|--------|
 | **Ethereum** | Live (Sepolia) | Largest DeFi TVL, highest security |
 | **Base** | Planned | #1 in x402 volume (Coinbase ecosystem) |
 | **Arbitrum** | Planned | Largest L2 by TVL |
 | **Polygon** | Planned | Enterprise + gaming agents |
-| **Any future EVM L1/L2** | Automatic | Wherever Zama deploys, MARC follows |
+| **Solana (SVM)** | Planned (Zama roadmap) | Largest non-EVM agent ecosystem |
+| **Any future VM** | Automatic | Wherever Zama deploys, MARC follows |
 
-When Zama deploys to Base, Arbitrum, and beyond — **agents on every major chain can make confidential payments through MARC Protocol.** One protocol, every chain, full privacy.
+When Zama deploys to Base, Arbitrum, Solana, and beyond, **agents on every major chain can make confidential payments through MARC Protocol.** One protocol, every chain, every VM, full privacy.
 
-> *"Crypto privacy is needed if you want to make API calls without compromising the information of your access patterns. Even with a local AI agent, you can learn a lot about what someone is doing if you see all of their search engine calls. [...] providers will demand an anti-DoS mechanism, and realistically payment per call. By default that will be credit card or some corposlop stablecoin thing — so we need crypto privacy."*
+> *"Crypto privacy is needed if you want to make API calls without compromising the information of your access patterns. Even with a local AI agent, you can learn a lot about what someone is doing if you see all of their search engine calls. [...] providers will demand an anti-DoS mechanism, and realistically payment per call. By default that will be credit card or some corposlop stablecoin thing, so we need crypto privacy."*
 >
-> — [Vitalik Buterin, March 2026](https://x.com/VitalikButerin/status/2030510783134871594)
+> -- [Vitalik Buterin, March 2026](https://x.com/VitalikButerin/status/2030510783134871594)
 
 ## Architecture
+
+MARC is a protocol-agnostic encryption layer. It sits beneath any agent payment framework and encrypts the payment data before it hits the chain.
+
+```
+              Agent Payment Frameworks
+    ┌─────┬─────┬─────┬─────┬──────────┬──────────┐
+    │ x402│ MCP │ MPP │ A2A │ AgentKit │ Virtuals │ ...
+    └──┬──┴──┬──┴──┬──┴──┬──┴────┬─────┴────┬─────┘
+       │     │     │     │       │          │
+       └─────┴─────┴─────┴───────┴──────────┘
+                        │
+              ┌─────────▼──────────┐
+              │   MARC Protocol    │
+              │  (FHE encryption)  │
+              └─────────┬──────────┘
+                        │
+              ┌─────────▼──────────┐
+              │  Zama fhEVM        │
+              │  (EVM, SVM, ...)   │
+              └────────────────────┘
+```
+
+**Example flow (x402):**
 
 ```
 Client (Agent A)                          Server (Agent B)
@@ -57,7 +81,9 @@ Client (Agent A)                          Server (Agent B)
     |<--- 200 + data -------------------------|
 ```
 
-**Two contracts — no pool:**
+The same encrypted cUSDC transfers work identically when triggered by MCP tool calls, MPP micropayments, A2A agent-to-agent settlements, or any other framework.
+
+**Two contracts, no pool:**
 
 | Contract | Purpose |
 |----------|---------|
@@ -66,15 +92,15 @@ Client (Agent A)                          Server (Agent B)
 
 ## Features
 
-- **Token-centric** — No pool contract. Agents hold encrypted cUSDC in their own wallets.
-- **Fee-free transfers** — `confidentialTransfer()` between agents costs zero protocol fee.
-- **Fees on wrap/unwrap only** — 0.1% (min 0.01 USDC) charged when entering or exiting the encrypted domain.
-- **minPrice verification** — `recordPayment` includes `minPrice` so servers can verify the committed payment amount.
-- **ERC-7984 compliant** — Standard confidential token interface (balanceOf, transfer, operator, wrap/unwrap).
-- **Silent failure pattern** — Insufficient balance transfers 0 instead of reverting (no balance info leaked).
-- **Pausable** — Owner can pause wrap/unwrap in emergencies.
-- **Ownable2Step** — 2-step ownership transfer prevents accidental lock-out.
-- **x402 native** — Drop-in SDK for client (fheFetch) and server (fhePaywall) integration.
+- **Token-centric.** No pool contract. Agents hold encrypted cUSDC in their own wallets.
+- **Fee-free transfers.** `confidentialTransfer()` between agents costs zero protocol fee.
+- **Fees on wrap/unwrap only.** 0.1% (min 0.01 USDC) charged when entering or exiting the encrypted domain.
+- **minPrice verification.** `recordPayment` includes `minPrice` so servers can verify the committed payment amount.
+- **ERC-7984 compliant.** Standard confidential token interface (balanceOf, transfer, operator, wrap/unwrap).
+- **Silent failure pattern.** Insufficient balance transfers 0 instead of reverting (no balance info leaked).
+- **Pausable.** Owner can pause wrap/unwrap in emergencies.
+- **Ownable2Step.** 2-step ownership transfer prevents accidental lock-out.
+- **Framework-agnostic.** Drop-in SDK for client (fheFetch) and server (fhePaywall) integration. Works with x402, MCP, MPP, A2A, AgentKit, and more.
 
 ## Quick Start
 
@@ -85,7 +111,7 @@ npm install
 # Compile contracts
 npx hardhat compile
 
-# Run contract tests (305 tests — fast, mock FHE, no ETH needed)
+# Run contract tests (305 tests, fast, mock FHE, no ETH needed)
 npx hardhat test
 
 # Build + test SDK (173 tests)
@@ -177,7 +203,7 @@ All contracts verified on [Etherscan](https://sepolia.etherscan.io).
 
 ## SDK Usage
 
-### Client — Auto-402 Fetch
+### Client, Auto-402 Fetch
 
 ```typescript
 import { fheFetch, createFheFetch } from "marc-protocol-sdk";
@@ -202,7 +228,7 @@ const secureFetch = createFheFetch({
 const res = await secureFetch("https://api.example.com/data");
 ```
 
-### Client — Payment Handler
+### Client, Payment Handler
 
 ```typescript
 import { FhePaymentHandler } from "marc-protocol-sdk";
@@ -222,7 +248,7 @@ const { txHash, verifierTxHash, nonce } = await handler.pay(
 );
 ```
 
-### Server — Paywall Middleware
+### Server, Paywall Middleware
 
 ```typescript
 import { fhePaywall } from "marc-protocol-sdk";
@@ -258,9 +284,9 @@ const app = await createFacilitatorServer({
 });
 
 app.listen(3001);
-// GET  /info    — scheme info + contract addresses
-// POST /verify  — verify ConfidentialTransfer + PaymentVerified events
-// GET  /health  — health check
+// GET  /info    - scheme info + contract addresses
+// POST /verify  - verify ConfidentialTransfer + PaymentVerified events
+// GET  /health  - health check
 ```
 
 ### ERC-8004 Agent Registration
@@ -471,10 +497,10 @@ marc-protocol/
 | **Wrap/Unwrap Fee** | 0.1% (min $0.01) | USDC enters/exits encrypted layer | Contract-level (`accumulatedFees → treasury`) |
 | **ERC-8183 Job Escrow** | 1% platform fee | Job completion | Contract-level (`PLATFORM_FEE_BPS = 100`) |
 
-**ERC-8183 Job Escrow — Primary Revenue:**
-Agent creates job → funds locked in escrow → work delivered → evaluator approves → **99% to provider, 1% to protocol**. The 1% fee is enforced at the contract level — mathematically unbypassable.
+**ERC-8183 Job Escrow, Primary Revenue:**
+Agent creates job, funds locked in escrow, work delivered, evaluator approves. **99% to provider, 1% to protocol**. The 1% fee is enforced at the contract level, mathematically unbypassable.
 
-**Transfers are fee-free** — this incentivizes agents to stay in the encrypted cUSDC layer, increasing protocol stickiness and reducing exit friction.
+**Transfers are fee-free.** This incentivizes agents to stay in the encrypted cUSDC layer, increasing protocol stickiness and reducing exit friction.
 
 ### Revenue Projections
 
@@ -486,7 +512,7 @@ Agent creates job → funds locked in escrow → work delivered → evaluator ap
 | **2027** | Multi-Chain | $1M | $3M | $300K | **$4.3M** |
 | **2028+** | Mainstream | $5M | $15M | $1M | **$21M** |
 
-Key insight: **every new chain Zama deploys to multiplies MARC's addressable market.** Current x402 volume is $166M+ and growing. MARC needs just 2-5% adoption for meaningful revenue.
+Key insight: **every new chain and VM that Zama deploys to multiplies MARC's addressable market.** x402 volume alone is $166M+ and growing. Combined with MCP, MPP, A2A, AgentKit, and other emerging protocols, the total agent payment market is much larger. MARC needs just 2-5% adoption for meaningful revenue.
 
 See [docs/REVENUE-PROJECTIONS.md](docs/REVENUE-PROJECTIONS.md) for detailed projections, sensitivity analysis, and market context.
 
@@ -494,14 +520,14 @@ See [docs/REVENUE-PROJECTIONS.md](docs/REVENUE-PROJECTIONS.md) for detailed proj
 
 ### What MARC Protocol Protects
 
-- **Payment amounts** — Encrypted via FHE (euint64). No on-chain observer can determine transfer values.
-- **Token balances** — Encrypted via FHE. Individual cUSDC balances are not visible on-chain.
+- **Payment amounts.** Encrypted via FHE (euint64). No on-chain observer can determine transfer values.
+- **Token balances.** Encrypted via FHE. Individual cUSDC balances are not visible on-chain.
 
 ### What MARC Protocol Does NOT Protect
 
-- **Participant identity** — Sender and recipient addresses are public (x402 requirement).
-- **Transaction existence** — Events are emitted for all operations.
-- **Wrap/unwrap amounts** — Plaintext USDC enters/exits the encrypted domain visibly.
+- **Participant identity.** Sender and recipient addresses are public (required by most agent payment protocols).
+- **Transaction existence.** Events are emitted for all operations.
+- **Wrap/unwrap amounts.** Plaintext USDC enters/exits the encrypted domain visibly.
 
 ### Security Measures
 
@@ -518,10 +544,10 @@ See [docs/REVENUE-PROJECTIONS.md](docs/REVENUE-PROJECTIONS.md) for detailed proj
 
 ### Known Limitations
 
-1. **Silent failure event emission** — `ConfidentialTransfer` fires even on 0-transfer (inherent to FHE). Servers bear bounded risk of one free API response per failed payment.
-2. **Dual-TX non-atomicity** — `confidentialTransfer` and `recordPayment` are separate transactions. If the first succeeds and the second fails, funds are transferred but the nonce is not recorded.
-3. **In-memory rate limiter** — Resets on server restart. Use external store (Redis) in production.
-4. **Mock KMS in tests** — `finalizeUnwrap` uses mock proofs. Production requires real Zama KMS.
+1. **Silent failure event emission.** `ConfidentialTransfer` fires even on 0-transfer (inherent to FHE). Servers bear bounded risk of one free API response per failed payment.
+2. **Dual-TX non-atomicity.** `confidentialTransfer` and `recordPayment` are separate transactions. If the first succeeds and the second fails, funds are transferred but the nonce is not recorded.
+3. **In-memory rate limiter.** Resets on server restart. Use external store (Redis) in production.
+4. **Mock KMS in tests.** `finalizeUnwrap` uses mock proofs. Production requires real Zama KMS.
 
 See [docs/SECURITY.md](docs/SECURITY.md) for the full threat model and audit history.
 
@@ -537,20 +563,20 @@ See [docs/SECURITY.md](docs/SECURITY.md) for the full threat model and audit his
 ## Roadmap
 
 ### Completed
-- **V4.0** — Token-centric rewrite (ERC-7984 + ERC7984ERC20Wrapper, no pool)
-- **V4.1** — Critical fixes (minPrice, assert→revert, unwrap cleanup, OpenClaw addresses)
-- **V4.2** — Single-TX payment (payAndRecord, confidentialTransferAndCall + callback)
-- **V4.3** — Batch prepayment (recordBatchPayment, batch credit system)
-- **V4.2.1** — Security hardening (access control, SafeCast, Pausable ACP, hook safety)
+- **V4.0.** Token-centric rewrite (ERC-7984 + ERC7984ERC20Wrapper, no pool)
+- **V4.1.** Critical fixes (minPrice, assert to revert, unwrap cleanup, OpenClaw addresses)
+- **V4.2.** Single-TX payment (payAndRecord, confidentialTransferAndCall + callback)
+- **V4.3.** Batch prepayment (recordBatchPayment, batch credit system)
+- **V4.2.1.** Security hardening (access control, SafeCast, Pausable ACP, hook safety)
 
 ### Completed (V4.3)
-- **V4.3** — ERC-8183 Agentic Commerce (job escrow, 1% completion fee)
-- **V4.3** — ERC-8004 full integration (identity + reputation + feedback, deployed + verified)
-- **V4.3** — Deep audit: 414 tests, all CRITICAL/HIGH/MEDIUM findings fixed
-- **V4.3** — Frontend: 5-tab UI (Dashboard, Wallet, Pay, Jobs, Agents)
-- **V4.3** — Redis stores, silent failure guard, batch prepayment
+- **V4.3.** ERC-8183 Agentic Commerce (job escrow, 1% completion fee)
+- **V4.3.** ERC-8004 full integration (identity + reputation + feedback, deployed + verified)
+- **V4.3.** Deep audit: 414 tests, all CRITICAL/HIGH/MEDIUM findings fixed
+- **V4.3.** Frontend: 5-tab UI (Dashboard, Wallet, Pay, Jobs, Agents)
+- **V4.3.** Redis stores, silent failure guard, batch prepayment
 
-### Planned — V6.0 (Production Readiness)
+### Planned, V6.0 (Production Readiness)
 - UUPS proxy pattern for contract upgradeability
 - Multisig treasury (Gnosis Safe 2/3 or 3/5)
 - KMS emergency withdrawal timelock (30-day governance delay)
@@ -559,19 +585,20 @@ See [docs/SECURITY.md](docs/SECURITY.md) for the full threat model and audit his
 - Formal verification (Certora or Halmos state machine proofs)
 - Professional third-party audit
 
-### Planned — V7.0 (Multi-Chain Expansion)
-- **Base deployment** — #1 chain for x402 volume (Coinbase ecosystem)
-- **Arbitrum deployment** — Largest L2 by TVL
-- **Ethereum Mainnet** — Highest security, largest DeFi TVL
+### Planned, V7.0 (Multi-Chain, Multi-VM Expansion)
+- **Base deployment** -- #1 chain for x402 volume (Coinbase ecosystem)
+- **Arbitrum deployment** -- Largest L2 by TVL
+- **Ethereum Mainnet** -- Highest security, largest DeFi TVL
+- **Solana (SVM) deployment** -- Largest non-EVM agent ecosystem (Zama roadmap)
 - Multi-token factory (cWETH, cDAI confidential wrappers)
-- x402 Foundation membership
+- MCP, MPP, A2A native adapters
 - ERC-8183 reference implementation ownership
 - ERC-8126 risk scoring (agent reputation risk framework)
 - Zama partnership (Zaiffer cUSDC migration)
 - LangChain / CrewAI / AutoGPT agent framework integrations
 - Facilitator network (decentralized verification service)
-- **Goal: MARC Protocol live on every chain where Zama fhEVM deploys**
+- **Goal: MARC Protocol live on every chain and VM where Zama deploys**
 
 ## License
 
-BUSL-1.1 — converts to GPL-2.0 on March 1, 2030.
+BUSL-1.1, converts to GPL-2.0 on March 1, 2030.
