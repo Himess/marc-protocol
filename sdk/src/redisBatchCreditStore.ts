@@ -66,7 +66,27 @@ export class RedisBatchCreditStore implements BatchCreditStore {
     }
   }
 
+  /**
+   * Consume one credit atomically.
+   * Uses Redis DECR on a separate counter key for atomicity.
+   * Falls back to GET+SET if DECR is not available (non-atomic but documented).
+   */
   async consume(payer: string, nonce: string): Promise<boolean> {
+    const counterKey = this.key(payer, nonce) + ":remaining";
+
+    // Prefer atomic DECR if available
+    if (this.redis.decr) {
+      const newVal = await this.redis.decr(counterKey);
+      // DECR returns -1 if key didn't exist, or decremented value
+      if (newVal < 0) {
+        // Key didn't exist or already 0 — restore to 0
+        await this.redis.set(counterKey, "0", "EX", this.ttlSeconds);
+        return false;
+      }
+      return true;
+    }
+
+    // Fallback: non-atomic GET+SET (single-instance only)
     const k = this.key(payer, nonce);
     const data = await this.redis.get(k);
     if (!data) return false;
@@ -75,7 +95,6 @@ export class RedisBatchCreditStore implements BatchCreditStore {
       if (parsed.remaining <= 0) return false;
       parsed.remaining--;
       if (parsed.remaining === 0) {
-        // Delete the key when credits exhausted
         await this.redis.set(k, JSON.stringify(parsed), "EX", 1);
       } else {
         await this.redis.set(k, JSON.stringify(parsed), "EX", this.ttlSeconds);
@@ -105,5 +124,8 @@ export class RedisBatchCreditStore implements BatchCreditStore {
       server: server.toLowerCase(),
     };
     await this.redis.set(k, JSON.stringify(entry), "EX", this.ttlSeconds);
+    // Set atomic counter key for DECR-based consumption
+    const counterKey = k + ":remaining";
+    await this.redis.set(counterKey, String(requestCount), "EX", this.ttlSeconds);
   }
 }

@@ -16,6 +16,9 @@ dotenv.config();
 const MNEMONIC: string = vars.get("MNEMONIC", "test test test test test test test test test test test junk");
 const PRIVATE_KEY: string = process.env.PRIVATE_KEY || "";
 const SEPOLIA_RPC_URL: string = process.env.SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz";
+const MAINNET_RPC_URL: string = process.env.MAINNET_RPC_URL || "";
+const BASE_RPC_URL: string = process.env.BASE_RPC_URL || "";
+const ARBITRUM_RPC_URL: string = process.env.ARBITRUM_RPC_URL || "";
 
 const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
@@ -31,7 +34,6 @@ const config: HardhatUserConfig = {
         mnemonic: MNEMONIC,
       },
       chainId: 31337,
-      allowUnlimitedContractSize: true,
     },
     sepolia: {
       accounts: PRIVATE_KEY
@@ -43,6 +45,21 @@ const config: HardhatUserConfig = {
           },
       chainId: 11155111,
       url: SEPOLIA_RPC_URL,
+    },
+    mainnet: {
+      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+      chainId: 1,
+      url: MAINNET_RPC_URL,
+    },
+    base: {
+      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+      chainId: 8453,
+      url: BASE_RPC_URL,
+    },
+    arbitrum: {
+      accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
+      chainId: 42161,
+      url: ARBITRUM_RPC_URL,
     },
   },
   paths: {
@@ -59,7 +76,7 @@ const config: HardhatUserConfig = {
       },
       optimizer: {
         enabled: true,
-        runs: 100,
+        runs: 500,
       },
       viaIR: true,
       evmVersion: "cancun",

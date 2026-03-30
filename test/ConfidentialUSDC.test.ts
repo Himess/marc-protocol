@@ -129,6 +129,13 @@ describe("ConfidentialUSDC", function () {
       ).to.be.revertedWithCustomError(token, "ZeroAmount");
     });
 
+    it("reverts when wrapping to zero address", async function () {
+      await usdc.connect(alice).approve(await token.getAddress(), USDC_100);
+      await expect(
+        token.connect(alice).wrap(ethers.ZeroAddress, USDC_100)
+      ).to.be.revertedWithCustomError(token, "ERC7984InvalidReceiver");
+    });
+
     it("reverts without USDC approval", async function () {
       await expect(
         token.connect(alice).wrap(alice.address, USDC_1)

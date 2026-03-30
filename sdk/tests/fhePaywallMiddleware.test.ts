@@ -1,7 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { ethers } from "ethers";
 import { fhePaywall } from "../src/fhePaywallMiddleware.js";
+import { canonicalPayloadMessage } from "../src/fhePaymentHandler.js";
 import { FHE_SCHEME } from "../src/types.js";
 import type { FhePaywallConfig, FhePaymentPayload, NonceStore } from "../src/types.js";
+
+// Deterministic wallet for test payload signing
+const TEST_WALLET = new ethers.Wallet("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
+const TEST_FROM = TEST_WALLET.address;
+
+async function signPayload(payload: Omit<FhePaymentPayload, "signature">): Promise<FhePaymentPayload> {
+  const message = canonicalPayloadMessage(payload as unknown as Record<string, unknown>);
+  const signature = await TEST_WALLET.signMessage(message);
+  return { ...payload, signature };
+}
 
 // ============================================================================
 // Mock Express req/res/next
@@ -205,6 +217,7 @@ describe("fhePaywall middleware", () => {
         nonce: "0x" + "ff".repeat(32),
         from: "0xSender",
         chainId: 11155111,
+        signature: "0xtest",
       };
       const req = createMockReq({
         headers: { payment: encodePaymentHeader(payload as any) },
@@ -243,7 +256,7 @@ describe("fhePaywall middleware", () => {
         txHash: "0xabc",
         verifierTxHash: "0xdef",
         nonce: "0x" + "ff".repeat(32),
-        from: "0xSender",
+        from: "0x1111111111111111111111111111111111111111",
         chainId: 1, // mainnet, but middleware expects Sepolia (11155111)
       };
       const req = createMockReq({
@@ -266,7 +279,7 @@ describe("fhePaywall middleware", () => {
         txHash: "0xabc",
         verifierTxHash: "0xdef",
         nonce: "0x" + "dd".repeat(32),
-        from: "0xSender",
+        from: "0x2222222222222222222222222222222222222222",
         chainId: 11155111, // correct Sepolia
       };
       const req = createMockReq({
@@ -322,15 +335,15 @@ describe("fhePaywall middleware", () => {
       const middleware = fhePaywall(createDefaultConfig());
       const nonce = "0x" + "aa".repeat(32);
 
-      // First request with this nonce
-      const payload: FhePaymentPayload = {
+      // First request with this nonce (properly signed)
+      const payload = await signPayload({
         scheme: FHE_SCHEME,
         txHash: "0xtxhash1",
         verifierTxHash: "0xvtxhash1",
         nonce,
-        from: "0xSender",
+        from: TEST_FROM,
         chainId: 11155111,
-      };
+      });
 
       const req1 = createMockReq({
         headers: { payment: encodePaymentHeader(payload) },
@@ -339,9 +352,18 @@ describe("fhePaywall middleware", () => {
       const res1 = createMockRes();
       await middleware(req1, res1, createMockNext());
 
-      // Second request with same nonce
+      // Second request with same nonce — re-sign with different txHash
+      const payload2 = await signPayload({
+        scheme: FHE_SCHEME,
+        txHash: "0xtxhash2",
+        verifierTxHash: "0xvtxhash1",
+        nonce,
+        from: TEST_FROM,
+        chainId: 11155111,
+      });
+
       const req2 = createMockReq({
-        headers: { payment: encodePaymentHeader({ ...payload, txHash: "0xtxhash2" }) },
+        headers: { payment: encodePaymentHeader(payload2) },
         socket: { remoteAddress: "10.0.1.2" },
       });
       const res2 = createMockRes();
@@ -353,19 +375,18 @@ describe("fhePaywall middleware", () => {
 
     it("should use custom NonceStore when provided", async () => {
       const store: NonceStore = {
-        check: vi.fn().mockResolvedValue(true),
-        add: vi.fn().mockResolvedValue(undefined),
+        checkAndAdd: vi.fn().mockResolvedValue(true), // nonce is new
       };
 
       const middleware = fhePaywall(createDefaultConfig({ nonceStore: store }));
-      const payload: FhePaymentPayload = {
+      const payload = await signPayload({
         scheme: FHE_SCHEME,
         txHash: "0xtx",
         verifierTxHash: "0xvtx",
         nonce: "0x" + "bb".repeat(32),
-        from: "0xSender",
+        from: TEST_FROM,
         chainId: 11155111,
-      };
+      });
 
       const req = createMockReq({
         headers: { payment: encodePaymentHeader(payload) },
@@ -374,26 +395,24 @@ describe("fhePaywall middleware", () => {
       const res = createMockRes();
       await middleware(req, res, createMockNext());
 
-      // Custom store should have been called
-      expect(store.check).toHaveBeenCalledWith(payload.nonce);
-      expect(store.add).toHaveBeenCalledWith(payload.nonce);
+      // Custom store should have been called atomically
+      expect(store.checkAndAdd).toHaveBeenCalledWith(payload.nonce);
     });
 
     it("should reject when custom NonceStore says nonce exists", async () => {
       const store: NonceStore = {
-        check: vi.fn().mockResolvedValue(false), // nonce already seen
-        add: vi.fn(),
+        checkAndAdd: vi.fn().mockResolvedValue(false), // nonce already seen
       };
 
       const middleware = fhePaywall(createDefaultConfig({ nonceStore: store }));
-      const payload: FhePaymentPayload = {
+      const payload = await signPayload({
         scheme: FHE_SCHEME,
         txHash: "0xtx",
         verifierTxHash: "0xvtx",
         nonce: "0x" + "cc".repeat(32),
-        from: "0xSender",
+        from: TEST_FROM,
         chainId: 11155111,
-      };
+      });
 
       const req = createMockReq({
         headers: { payment: encodePaymentHeader(payload) },
@@ -404,7 +423,6 @@ describe("fhePaywall middleware", () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.body.error).toBe("Nonce already used");
-      expect(store.add).not.toHaveBeenCalled();
     });
   });
 });

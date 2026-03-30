@@ -101,6 +101,35 @@ describe("X402PaymentVerifier", function () {
   });
 
   // =========================================================================
+  // V4.4 — payAndRecord trustedToken guard
+  // =========================================================================
+
+  it("payAndRecord reverts with untrusted token", async function () {
+    // Call payAndRecord with an address that is NOT the trustedToken
+    // Should revert with UntrustedCaller
+    await expect(
+      verifier.connect(payer).payAndRecord(
+        server.address, // NOT trustedToken
+        other.address, // server
+        ethers.hexlify(ethers.randomBytes(32)), // nonce
+        1000000, // minPrice
+        ethers.hexlify(ethers.randomBytes(32)), // fake encrypted amount
+        "0x" // fake proof
+      )
+    ).to.be.revertedWithCustomError(verifier, "UntrustedCaller");
+  });
+
+  // =========================================================================
+  // V4.4 — recordPayment zero minPrice guard
+  // =========================================================================
+
+  it("recordPayment reverts on zero minPrice", async function () {
+    await expect(
+      verifier.connect(payer).recordPayment(server.address, ethers.hexlify(ethers.randomBytes(32)), 0)
+    ).to.be.revertedWithCustomError(verifier, "ZeroMinPrice");
+  });
+
+  // =========================================================================
   // V4.4 — recordPayment uses msg.sender as payer
   // =========================================================================
 
@@ -290,6 +319,26 @@ describe("X402PaymentVerifier", function () {
       await expect(
         verifier.connect(payer).recordBatchPayment(server.address, nonce, 1, 100000n)
       ).to.not.be.reverted;
+    });
+
+    it("recordBatchPayment reverts on zero pricePerRequest", async function () {
+      await expect(
+        verifier.connect(payer).recordBatchPayment(server.address, ethers.hexlify(ethers.randomBytes(32)), 10, 0)
+      ).to.be.revertedWithCustomError(verifier, "ZeroMinPrice");
+    });
+
+    it("recordBatchPayment reverts on overflow (requestCount * pricePerRequest > uint64 max)", async function () {
+      // uint64 max = 18446744073709551615 (~1.8e19)
+      // requestCount = 4294967295 (uint32 max), pricePerRequest = 2^33 = 8589934592
+      // Product = 4294967295 * 8589934592 = 36893488151674060800 (~3.7e19) > uint64 max
+      await expect(
+        verifier.connect(payer).recordBatchPayment(
+          server.address,
+          ethers.hexlify(ethers.randomBytes(32)),
+          4294967295, // uint32 max
+          8589934592n // 2^33 — ensures product > uint64 max
+        )
+      ).to.be.revertedWithCustomError(verifier, "BatchOverflow");
     });
   });
 });

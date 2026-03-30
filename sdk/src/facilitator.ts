@@ -1,11 +1,11 @@
 import crypto from "crypto";
 
-/** Constant-time string comparison to prevent timing attacks */
+/** Constant-time string comparison to prevent timing attacks.
+ *  Uses hash comparison to avoid leaking length information. */
 function timingSafeCompare(a: string, b: string): boolean {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) return false;
-  return crypto.timingSafeEqual(bufA, bufB);
+  const hashA = crypto.createHash("sha256").update(a).digest();
+  const hashB = crypto.createHash("sha256").update(b).digest();
+  return crypto.timingSafeEqual(hashA, hashB);
 }
 
 export interface FacilitatorConfig {
@@ -16,6 +16,8 @@ export interface FacilitatorConfig {
   version?: string;
   apiKey?: string;
   chainId?: number;
+  /** Allowed CORS origins. Empty array = allow all origins (default). */
+  allowedOrigins?: string[];
 }
 
 const TOKEN_EVENT_ABI = [
@@ -45,13 +47,19 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
   const app = express();
   app.use(express.json({ limit: "100kb" }));
 
+  const allowedOrigins = config.allowedOrigins || [];
+
   // CORS headers for cross-origin requests
   app.use((_req: any, res: any, nextFn: any) => {
     const setH = res.setHeader?.bind(res) ?? res.set?.bind(res) ?? res.header?.bind(res);
     if (setH) {
-      setH("Access-Control-Allow-Origin", "*");
-      setH("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-      setH("Access-Control-Allow-Headers", "Content-Type, Authorization, X-FHE-x402-API-Key");
+      const origin = _req.headers?.origin;
+      if (allowedOrigins.length === 0 || (origin && allowedOrigins.includes(origin))) {
+        setH("Access-Control-Allow-Origin", origin || "*");
+        setH("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        setH("Access-Control-Allow-Headers", "Content-Type, Authorization, X-FHE-x402-API-Key");
+      }
+      // If allowedOrigins is non-empty and origin doesn't match, don't set CORS headers — block cross-origin
     }
     if (_req.method === "OPTIONS") return res.status(204).end();
     nextFn();
@@ -75,21 +83,42 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
     });
   }
 
-  // Lazy-init provider
+  // Lazy-init provider with reconnection on failure
   let _provider: any = null;
 
   async function getProvider() {
-    if (!_provider) {
-      const { ethers } = await import("ethers");
-      _provider = new ethers.JsonRpcProvider(config.rpcUrl);
+    if (_provider) {
+      try {
+        await _provider.getBlockNumber(); // health check
+        return _provider;
+      } catch {
+        _provider = null; // force reconnect
+      }
     }
+    const { ethers } = await import("ethers");
+    _provider = new ethers.JsonRpcProvider(config.rpcUrl);
     return _provider;
   }
 
-  // Simple rate limiter
+  // Rate limiter with eviction (prevents memory leak under sustained load)
+  const MAX_RATE_ENTRIES = 10_000;
   const verifyRateLimit = new Map<string, { count: number; resetAt: number }>();
+  let lastRateCleanup = Date.now();
+
   function checkVerifyRateLimit(ip: string): boolean {
     const now = Date.now();
+    // Periodic cleanup — evict expired entries
+    if (now - lastRateCleanup > 60_000) {
+      for (const [key, entry] of verifyRateLimit) {
+        if (now > entry.resetAt) verifyRateLimit.delete(key);
+      }
+      lastRateCleanup = now;
+    }
+    // LRU eviction if at capacity
+    if (verifyRateLimit.size >= MAX_RATE_ENTRIES) {
+      const first = verifyRateLimit.keys().next().value;
+      if (first) verifyRateLimit.delete(first);
+    }
     const entry = verifyRateLimit.get(ip);
     if (!entry || now > entry.resetAt) {
       verifyRateLimit.set(ip, { count: 1, resetAt: now + 60000 });
@@ -97,6 +126,13 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
     }
     entry.count++;
     return entry.count <= 30;
+  }
+
+  /** Extract client IP — prefers X-Forwarded-For for reverse proxy support. */
+  function getClientIp(req: any): string {
+    const forwarded = req.headers?.["x-forwarded-for"];
+    const forwardedIp = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : undefined;
+    return forwardedIp || req.socket?.remoteAddress || "unknown";
   }
 
   // === x402 Standard Endpoints ===
@@ -117,7 +153,7 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
   // /verify — verify ConfidentialTransfer + PaymentVerified events on-chain
   app.post("/verify", async (req: any, res: any) => {
     try {
-      const clientIp = req.socket?.remoteAddress ?? "unknown";
+      const clientIp = getClientIp(req);
       if (!checkVerifyRateLimit(clientIp)) {
         return res.status(429).json({ valid: false, error: "Too many requests" });
       }
@@ -199,8 +235,9 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
         settledAt: new Date().toISOString(),
       });
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : "Unknown error";
-      res.status(500).json({ valid: false, error: msg });
+      // Log full error internally, return generic message to prevent info leakage
+      console.error("[facilitator] Verification error:", error);
+      res.status(500).json({ valid: false, error: "Verification failed" });
     }
   });
 

@@ -42,6 +42,8 @@ export interface FhePaymentPayload {
   nonce: string; // bytes32 hex
   from: string;
   chainId: number;
+  /** EIP-191 signature over the canonical payload (excludes signature field itself) */
+  signature: string;
 }
 
 /** V4.3 — Batch prepayment payload (client sends in Payment header) */
@@ -54,6 +56,8 @@ export interface FheBatchPaymentPayload {
   chainId: number;
   requestCount: number; // number of prepaid requests
   pricePerRequest: string; // price per request in USDC (6 decimals)
+  /** EIP-191 signature over the canonical payload (excludes signature field itself) */
+  signature: string;
 }
 
 /** Middleware config */
@@ -70,6 +74,19 @@ export interface FhePaywallConfig {
   rateLimitWindowMs?: number;
   minConfirmations?: number; // minimum block confirmations (default: 1)
   nonceStore?: NonceStore; // external nonce persistence (default: in-memory Set)
+  /** Trust X-Forwarded-For header for rate limiting (default: false).
+   *  Enable only when behind a trusted reverse proxy. */
+  trustProxy?: boolean;
+  /** RPC request timeout in ms (default: 30000) */
+  rpcTimeoutMs?: number;
+  /** Callback invoked after a payment is successfully verified */
+  onPaymentVerified?: (info: { requestId: string; payer: string; nonce: string; amount: string; latencyMs: number }) => void;
+  /** Callback invoked when a payment fails verification */
+  onPaymentFailed?: (info: { requestId: string; error: string; latencyMs: number }) => void;
+  /** Webhook URL to POST payment settlement events to (fire-and-forget) */
+  webhookUrl?: string;
+  /** HMAC-SHA256 secret for signing webhook payloads (included in X-Webhook-Signature header) */
+  webhookSecret?: string;
 }
 
 /** Resource info for 402 response */
@@ -131,15 +148,12 @@ export interface FhevmEncryptedInput {
  * to survive server restarts.
  *
  * NonceStore implementations may be sync or async.
- * Prefer implementing checkAndAdd() for atomic nonce checking.
+ * checkAndAdd() is REQUIRED for atomic nonce checking (prevents TOCTOU race).
  */
 export interface NonceStore {
-  /** Check if nonce exists. Returns true if nonce is NEW (not seen before). */
-  check(nonce: string): boolean | Promise<boolean>;
-  /** Mark nonce as used. */
-  add(nonce: string): void | Promise<void>;
-  /** Atomic check-and-add. Returns true if nonce is new, false if replay. Optional — if not provided, check+add are called separately. */
-  checkAndAdd?(nonce: string): boolean | Promise<boolean>;
+  /** Atomic check-and-add. Returns true if nonce is new (added), false if replay (already exists).
+   *  MUST be atomic — no gap between check and add. */
+  checkAndAdd(nonce: string): boolean | Promise<boolean>;
 }
 
 // ============================================================================

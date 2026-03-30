@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.24;
+pragma solidity 0.8.27;
 
 import "@fhevm/solidity/lib/FHE.sol";
 import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import {IERC7984Receiver} from "@openzeppelin/confidential-contracts/interfaces/IERC7984Receiver.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 /// @title X402PaymentVerifier — On-chain nonce registry for x402 payments
 /// @notice Thin contract that records payment nonces for server-side verification.
@@ -11,12 +13,15 @@ import {IERC7984Receiver} from "@openzeppelin/confidential-contracts/interfaces/
 ///         events (from this contract) to confirm payments.
 ///         V4.2: Added payAndRecord() for single-TX payment + nonce recording.
 ///         V4.3: Added recordBatchPayment() for prepaid request bundles.
-contract X402PaymentVerifier is ZamaEthereumConfig, IERC7984Receiver {
+contract X402PaymentVerifier is ZamaEthereumConfig, IERC7984Receiver, Ownable2Step, Pausable {
     /// @notice The trusted ConfidentialUSDC token contract
     address public immutable trustedToken;
 
     /// @notice Used nonces for replay prevention
     mapping(bytes32 => bool) public usedNonces;
+
+    /// @notice Tracks who recorded each nonce (for cancellation)
+    mapping(bytes32 => address) public nonceOwners;
 
     // ═══════════════════════════════════════
     // EVENTS
@@ -43,6 +48,9 @@ contract X402PaymentVerifier is ZamaEthereumConfig, IERC7984Receiver {
         uint64 pricePerRequest
     );
 
+    /// @notice Emitted when a nonce is cancelled by its owner
+    event NonceCancelled(address indexed payer, bytes32 indexed nonce);
+
     // ═══════════════════════════════════════
     // ERRORS
     // ═══════════════════════════════════════
@@ -59,11 +67,21 @@ contract X402PaymentVerifier is ZamaEthereumConfig, IERC7984Receiver {
     /// @notice minPrice must be > 0
     error ZeroMinPrice();
 
+    /// @notice Batch total (requestCount * pricePerRequest) exceeds uint64 max
+    error BatchOverflow();
+
+    /// @notice Address must not be zero
+    error ZeroAddress();
+
+    /// @notice Nonce cancellation failed (caller is not the nonce owner)
+    error NonceCancellationFailed();
+
     // ═══════════════════════════════════════
     // CONSTRUCTOR
     // ═══════════════════════════════════════
 
-    constructor(address _trustedToken) {
+    constructor(address _trustedToken) Ownable(msg.sender) {
+        if (_trustedToken == address(0)) revert ZeroAddress();
         trustedToken = _trustedToken;
     }
 
@@ -76,10 +94,12 @@ contract X402PaymentVerifier is ZamaEthereumConfig, IERC7984Receiver {
     /// @param server The address that receives the payment
     /// @param nonce Unique payment identifier (bytes32)
     /// @param minPrice Minimum price committed to (6 decimals, e.g. 1000000 = 1 USDC)
-    function recordPayment(address server, bytes32 nonce, uint64 minPrice) external {
+    function recordPayment(address server, bytes32 nonce, uint64 minPrice) external whenNotPaused {
+        if (server == address(0)) revert ZeroAddress();
         if (usedNonces[nonce]) revert NonceAlreadyUsed();
         if (minPrice == 0) revert ZeroMinPrice();
         usedNonces[nonce] = true;
+        nonceOwners[nonce] = msg.sender;
         emit PaymentVerified(msg.sender, server, nonce, minPrice);
     }
 
@@ -103,10 +123,13 @@ contract X402PaymentVerifier is ZamaEthereumConfig, IERC7984Receiver {
         uint64 minPrice,
         externalEuint64 encryptedAmount,
         bytes calldata inputProof
-    ) external {
+    ) external whenNotPaused {
+        if (server == address(0)) revert ZeroAddress();
+        if (token != trustedToken) revert UntrustedCaller();
         if (usedNonces[nonce]) revert NonceAlreadyUsed();
         if (minPrice == 0) revert ZeroMinPrice();
         usedNonces[nonce] = true;
+        nonceOwners[nonce] = msg.sender;
 
         // Call confidentialTransferFrom on the ERC-7984 token.
         // Requires msg.sender to have set this contract as operator.
@@ -138,10 +161,15 @@ contract X402PaymentVerifier is ZamaEthereumConfig, IERC7984Receiver {
         bytes32 nonce,
         uint32 requestCount,
         uint64 pricePerRequest
-    ) external {
+    ) external whenNotPaused {
+        if (server == address(0)) revert ZeroAddress();
         if (usedNonces[nonce]) revert NonceAlreadyUsed();
         if (requestCount == 0) revert ZeroRequestCount();
+        if (pricePerRequest == 0) revert ZeroMinPrice();
+        // Overflow check: requestCount * pricePerRequest must fit in uint64
+        if (uint256(requestCount) * uint256(pricePerRequest) > type(uint64).max) revert BatchOverflow();
         usedNonces[nonce] = true;
+        nonceOwners[nonce] = msg.sender;
         emit BatchPaymentRecorded(msg.sender, server, nonce, requestCount, pricePerRequest);
     }
 
@@ -166,8 +194,36 @@ contract X402PaymentVerifier is ZamaEthereumConfig, IERC7984Receiver {
         if (usedNonces[nonce]) revert NonceAlreadyUsed();
         if (minPrice == 0) revert ZeroMinPrice();
         usedNonces[nonce] = true;
+        nonceOwners[nonce] = from;
         emit PaymentVerified(from, server, nonce, minPrice);
         return FHE.asEbool(true);
+    }
+
+    // ═══════════════════════════════════════
+    // NONCE CANCELLATION
+    // ═══════════════════════════════════════
+
+    /// @notice Cancel an unused nonce. Only callable by the address that recorded it.
+    ///         This is useful when the off-chain service delivery fails after nonce recording.
+    function cancelNonce(bytes32 nonce) external {
+        if (nonceOwners[nonce] != msg.sender) revert NonceCancellationFailed();
+        delete usedNonces[nonce];
+        delete nonceOwners[nonce];
+        emit NonceCancelled(msg.sender, nonce);
+    }
+
+    // ═══════════════════════════════════════
+    // ADMIN
+    // ═══════════════════════════════════════
+
+    /// @notice Pause all payment recording operations (emergency stop)
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Resume operations
+    function unpause() external onlyOwner {
+        _unpause();
     }
 }
 

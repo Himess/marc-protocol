@@ -16,11 +16,11 @@ export type {
 export { FHE_SCHEME, TOKEN_ABI, VERIFIER_ABI, FEE_BPS, BPS, MIN_PROTOCOL_FEE } from "./types.js";
 
 // Payment handler (client-side)
-export { FhePaymentHandler, decodePaymentHeader, decodeBatchPaymentHeader } from "./fhePaymentHandler.js";
+export { FhePaymentHandler, decodePaymentHeader, decodeBatchPaymentHeader, verifyPaymentSignature, canonicalPayloadMessage } from "./fhePaymentHandler.js";
 export type { FhePaymentHandlerOptions, FhePaymentResult, FheBatchPaymentResult } from "./fhePaymentHandler.js";
 
 // Paywall middleware (server-side)
-export { fhePaywall, fheBatchPaywall, getBatchCredits } from "./fhePaywallMiddleware.js";
+export { fhePaywall, fheBatchPaywall } from "./fhePaywallMiddleware.js";
 
 // Fetch wrapper (client-side)
 export { fheFetch, createFheFetch, fheFetchWithCallback, verifyTxOnChain } from "./fheFetch.js";
@@ -87,6 +87,10 @@ export type { Logger, LogLevel } from "./logger.js";
 
 // ANSI color helpers (demo/CLI pretty-printing)
 export { colors, banner, step, info, txBox, separator, success, error, warn } from "./colors.js";
+
+// Multi-chain configuration
+export { CHAINS, getChainConfig, setChainContracts } from "./chains.js";
+export type { ChainConfig, ChainContracts } from "./chains.js";
 
 // Error classes
 export {

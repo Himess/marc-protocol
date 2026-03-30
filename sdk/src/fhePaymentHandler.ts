@@ -101,11 +101,12 @@ export class FhePaymentHandler {
     try {
       const input = this.fhevmInstance.createEncryptedInput(requirements.tokenAddress, signerAddress);
       input.add64(amount);
+      let timeoutId: ReturnType<typeof setTimeout>;
       encrypted = await Promise.race([
-        input.encrypt(),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("FHE encryption timed out after 30s")), 30_000)
-        ),
+        input.encrypt().finally(() => clearTimeout(timeoutId)),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error("FHE encryption timed out after 30s")), 30_000);
+        }),
       ]);
     } catch (err) {
       throw new EncryptionError(`FHE encryption failed: ${err instanceof Error ? err.message : String(err)}`, {
@@ -140,21 +141,31 @@ export class FhePaymentHandler {
     }
 
     // Step 2: Call verifier.recordPayment() — on-chain nonce with minPrice
+    // If TX2 fails, include TX1 hash in error so client can retry TX2 only
     const verifierABI = ["function recordPayment(address server, bytes32 nonce, uint64 minPrice) external"];
     const verifier = new Contract(requirements.verifierAddress, verifierABI, this.signer);
 
-    const vTx = await verifier.recordPayment(requirements.recipientAddress, nonce, amount);
-    const vReceipt = await vTx.wait();
-
-    if (!vReceipt || vReceipt.status === 0) {
-      throw new PaymentError("Verifier recordPayment failed", {
-        txHash: vTx.hash,
-        nonce,
-      });
+    let vTx;
+    try {
+      vTx = await verifier.recordPayment(requirements.recipientAddress, nonce, amount);
+      const vReceipt = await vTx.wait();
+      if (!vReceipt || vReceipt.status === 0) {
+        throw new Error("TX reverted");
+      }
+    } catch (err) {
+      throw new PaymentError(
+        "Verifier recordPayment failed. Transfer TX succeeded — retry with a new nonce or recover funds.",
+        {
+          transferTxHash: tx.hash,
+          verifierTxHash: vTx?.hash,
+          nonce,
+          recoverable: true,
+        }
+      );
     }
 
-    // Build payment payload
-    const payload: FhePaymentPayload = {
+    // Build and sign payment payload
+    const payloadData = {
       scheme: FHE_SCHEME,
       txHash: tx.hash,
       verifierTxHash: vTx.hash,
@@ -162,6 +173,8 @@ export class FhePaymentHandler {
       from: signerAddress,
       chainId: requirements.chainId,
     };
+    const signature = await this.signer.signMessage(canonicalPayloadMessage(payloadData));
+    const payload: FhePaymentPayload = { ...payloadData, signature };
 
     const paymentHeader = encodePaymentHeader(payload);
 
@@ -196,11 +209,12 @@ export class FhePaymentHandler {
     try {
       const input = this.fhevmInstance.createEncryptedInput(requirements.tokenAddress, signerAddress);
       input.add64(amount);
+      let timeoutId: ReturnType<typeof setTimeout>;
       encrypted = await Promise.race([
-        input.encrypt(),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("FHE encryption timed out after 30s")), 30_000)
-        ),
+        input.encrypt().finally(() => clearTimeout(timeoutId)),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error("FHE encryption timed out after 30s")), 30_000);
+        }),
       ]);
     } catch (err) {
       throw new EncryptionError(`FHE encryption failed: ${err instanceof Error ? err.message : String(err)}`, {
@@ -263,7 +277,7 @@ export class FhePaymentHandler {
       });
     }
 
-    const payload: FhePaymentPayload = {
+    const payloadData = {
       scheme: FHE_SCHEME,
       txHash: tx.hash,
       verifierTxHash: "", // empty for single-TX (nonce recorded in same tx)
@@ -271,6 +285,8 @@ export class FhePaymentHandler {
       from: signerAddress,
       chainId: requirements.chainId,
     };
+    const signature = await this.signer.signMessage(canonicalPayloadMessage(payloadData));
+    const payload: FhePaymentPayload = { ...payloadData, signature };
 
     return {
       paymentHeader: encodePaymentHeader(payload),
@@ -317,6 +333,11 @@ export class FhePaymentHandler {
       throw new PaymentError("Request count must be > 0", { requestCount });
     }
 
+    const MAX_BATCH_SIZE = 100_000;
+    if (requestCount > MAX_BATCH_SIZE) {
+      throw new PaymentError(`Request count ${requestCount} exceeds maximum ${MAX_BATCH_SIZE}`, { requestCount });
+    }
+
     const signerAddress = await this.signer.getAddress();
     const perRequest = BigInt(pricePerRequest);
 
@@ -342,11 +363,12 @@ export class FhePaymentHandler {
     try {
       const input = this.fhevmInstance.createEncryptedInput(requirements.tokenAddress, signerAddress);
       input.add64(totalAmount);
+      let timeoutId: ReturnType<typeof setTimeout>;
       encrypted = await Promise.race([
-        input.encrypt(),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("FHE encryption timed out after 30s")), 30_000)
-        ),
+        input.encrypt().finally(() => clearTimeout(timeoutId)),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error("FHE encryption timed out after 30s")), 30_000);
+        }),
       ]);
     } catch (err) {
       throw new EncryptionError(`FHE encryption failed: ${err instanceof Error ? err.message : String(err)}`, {
@@ -396,8 +418,8 @@ export class FhePaymentHandler {
       });
     }
 
-    // Build batch payment payload
-    const payload: FheBatchPaymentPayload = {
+    // Build and sign batch payment payload
+    const payloadData = {
       scheme: FHE_SCHEME,
       txHash: tx.hash,
       verifierTxHash: vTx.hash,
@@ -407,6 +429,8 @@ export class FhePaymentHandler {
       requestCount,
       pricePerRequest,
     };
+    const signature = await this.signer.signMessage(canonicalPayloadMessage(payloadData));
+    const payload: FheBatchPaymentPayload = { ...payloadData, signature };
 
     const paymentHeader = encodeBatchPaymentHeader(payload);
 
@@ -418,6 +442,41 @@ export class FhePaymentHandler {
       requestCount,
       pricePerRequest,
     };
+  }
+}
+
+// ============================================================================
+// Signature Helpers
+// ============================================================================
+
+/**
+ * Create a canonical message string from payload data (excluding signature).
+ * Used for EIP-191 signing and verification.
+ *
+ * Uses sorted-key JSON serialization via JSON.stringify replacer parameter
+ * for deterministic output regardless of property insertion order.
+ * Safe for numeric-like keys (avoids V8 integer-index reordering).
+ */
+export function canonicalPayloadMessage(data: Record<string, unknown>): string {
+  const keys = Object.keys(data)
+    .filter((k) => k !== "signature")
+    .sort();
+  // Use replacer to enforce key order (immune to V8 integer-index reordering)
+  return JSON.stringify(data, keys);
+}
+
+/**
+ * Verify payment header signature matches the claimed `from` address.
+ * @returns true if signature is valid, false otherwise
+ */
+export function verifyPaymentSignature(payload: FhePaymentPayload | FheBatchPaymentPayload): boolean {
+  if (!payload.signature) return false;
+  try {
+    const message = canonicalPayloadMessage(payload as unknown as Record<string, unknown>);
+    const recovered = ethers.verifyMessage(message, payload.signature);
+    return recovered.toLowerCase() === payload.from.toLowerCase();
+  } catch {
+    return false;
   }
 }
 
@@ -445,7 +504,8 @@ export function decodePaymentHeader(header: string): FhePaymentPayload {
     typeof parsed.verifierTxHash !== "string" ||
     typeof parsed.nonce !== "string" ||
     typeof parsed.from !== "string" ||
-    typeof parsed.chainId !== "number"
+    typeof parsed.chainId !== "number" ||
+    typeof parsed.signature !== "string"
   ) {
     throw new Error("Invalid payment payload: missing required fields");
   }
@@ -465,7 +525,8 @@ export function decodeBatchPaymentHeader(header: string): FheBatchPaymentPayload
     typeof parsed.from !== "string" ||
     typeof parsed.chainId !== "number" ||
     typeof parsed.requestCount !== "number" ||
-    typeof parsed.pricePerRequest !== "string"
+    typeof parsed.pricePerRequest !== "string" ||
+    typeof parsed.signature !== "string"
   ) {
     throw new Error("Invalid batch payment payload: missing required fields");
   }

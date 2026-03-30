@@ -57,7 +57,7 @@ export default function App() {
     setTxHistory((prev) => [{ action, txHash, amount, timestamp: Date.now() }, ...prev].slice(0, 50));
   };
 
-  const getFhevmInstance = async (ethereumProvider?: any): Promise<FhevmInstance> => {
+  const getFhevmInstance = async (): Promise<FhevmInstance> => {
     if (fhevmRef.current) return fhevmRef.current;
     if (!fhevmInitPromise.current) {
       fhevmInitPromise.current = (async () => {
@@ -68,8 +68,8 @@ export default function App() {
         await withTimeout(initSDK({ tfheParams: "/tfhe_bg.wasm", kmsParams: "/kms_lib_bg.wasm", thread: 0 }), 30000, "initSDK");
         console.log("[FHE] initSDK done, creating instance...");
 
-        const network = ethereumProvider || SEPOLIA_RPC;
-        const instance = await withTimeout(createInstance({ ...SepoliaConfig, network }), 30000, "createInstance");
+        // Always use RPC URL string — relayer-sdk expects string, not EIP-1193 provider
+        const instance = await withTimeout(createInstance({ ...SepoliaConfig, network: SEPOLIA_RPC }), 30000, "createInstance");
         console.log("[FHE] instance created!");
 
         fhevmRef.current = instance as unknown as FhevmInstance;
@@ -107,7 +107,7 @@ export default function App() {
       setAddress(addr);
       showStatus(`Connected: ${shortAddr(addr)}. Initializing FHE engine...`, "info");
 
-      getFhevmInstance(ethereum)
+      getFhevmInstance()
         .then(() => showStatus(`Connected: ${shortAddr(addr)} | FHE ready`, "success"))
         .catch((e) => showStatus(`Connected: ${shortAddr(addr)} | FHE init failed: ${e.message}`, "error"));
     } catch (e: any) {

@@ -81,13 +81,11 @@ describe("AgentIdentityRegistry", function () {
       ).to.be.revertedWithCustomError(registry, "EmptyURI");
     });
 
-    it("allows same owner to register multiple agents", async function () {
+    it("reverts when same owner registers twice (wallet collision)", async function () {
       await registry.connect(alice).register(AGENT_URI_1);
-      await registry.connect(alice).register(AGENT_URI_2);
-
-      // Second registration overwrites walletToAgent mapping
-      expect(await registry.agentOf(alice.address)).to.equal(2n);
-      expect(await registry.nextAgentId()).to.equal(3n);
+      await expect(
+        registry.connect(alice).register(AGENT_URI_2)
+      ).to.be.revertedWithCustomError(registry, "WalletAlreadyLinked");
     });
 
     it("emits AgentRegistered event with correct args", async function () {
@@ -154,14 +152,17 @@ describe("AgentIdentityRegistry", function () {
       expect(await registry.agentOf(carol.address)).to.equal(1n);
     });
 
-    it("handles wallet conflict (two agents same wallet)", async function () {
+    it("reverts wallet conflict (two agents same wallet)", async function () {
       await registry.connect(bob).register(AGENT_URI_2); // agentId=2
 
       await registry.connect(alice).setAgentWallet(1, carol.address);
-      await registry.connect(bob).setAgentWallet(2, carol.address);
+      // Bob tries to set carol's wallet → should revert (already linked to agent 1)
+      await expect(
+        registry.connect(bob).setAgentWallet(2, carol.address)
+      ).to.be.revertedWithCustomError(registry, "WalletAlreadyLinked");
 
-      // Carol now points to agent 2 (last write wins)
-      expect(await registry.agentOf(carol.address)).to.equal(2n);
+      // Carol still points to agent 1
+      expect(await registry.agentOf(carol.address)).to.equal(1n);
     });
   });
 

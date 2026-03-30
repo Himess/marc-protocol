@@ -1,22 +1,67 @@
 // ============================================================================
-// FHE x402 — Frontend Configuration
+// FHE x402 — Frontend Configuration (Multi-chain)
 // ============================================================================
 
-export const CHAIN_ID = 11155111;
-export const SEPOLIA_RPC = "https://ethereum-sepolia-rpc.publicnode.com";
-export const ETHERSCAN_BASE = "https://sepolia.etherscan.io";
+// ── Network Configs ────────────────────────────────────────────────────────
 
-// ── Contract Addresses (Sepolia V4.3) ──────────────────────────────────────
+interface NetworkConfig {
+  chainId: number;
+  name: string;
+  rpc: string;
+  explorer: string;
+  addresses: {
+    TOKEN: string;
+    VERIFIER: string;
+    USDC: string;
+    ACP: string;
+    IDENTITY: string;
+    REPUTATION: string;
+    TREASURY: string;
+  };
+}
 
-export const ADDRESSES = {
-  TOKEN: "0xE944754aa70d4924dc5d8E57774CDf21Df5e592D",
-  VERIFIER: "0x4503A7aee235aBD10e6064BBa8E14235fdF041f4",
-  USDC: "0xc89e913676B034f8b38E49f7508803d1cDEC9F4f",
-  ACP: "0xBCA8d5ce6D57f36c7aF71954e9F7f86773a02F22",
-  IDENTITY: "0xf4609D5DB3153717827703C795acb00867b69567",
-  REPUTATION: "0xd1Dd10990f317802c79077834c75742388959668",
-  TREASURY: "0xF505e2E71df58D7244189072008f25f6b6aaE5ae",
-} as const;
+const NETWORKS: Record<string, NetworkConfig> = {
+  sepolia: {
+    chainId: 11155111,
+    name: "Sepolia Testnet",
+    rpc: "https://ethereum-sepolia-rpc.publicnode.com",
+    explorer: "https://sepolia.etherscan.io",
+    addresses: {
+      TOKEN: "0xE944754aa70d4924dc5d8E57774CDf21Df5e592D",
+      VERIFIER: "0x4503A7aee235aBD10e6064BBa8E14235fdF041f4",
+      USDC: "0xc89e913676B034f8b38E49f7508803d1cDEC9F4f",
+      ACP: "0xBCA8d5ce6D57f36c7aF71954e9F7f86773a02F22",
+      IDENTITY: "0xf4609D5DB3153717827703C795acb00867b69567",
+      REPUTATION: "0xd1Dd10990f317802c79077834c75742388959668",
+      TREASURY: "0xF505e2E71df58D7244189072008f25f6b6aaE5ae",
+    },
+  },
+  mainnet: {
+    chainId: 1,
+    name: "Ethereum Mainnet",
+    rpc: "", // Set via env or user-provided RPC
+    explorer: "https://etherscan.io",
+    addresses: {
+      TOKEN: "",    // Set after mainnet deploy
+      VERIFIER: "",
+      USDC: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      ACP: "",
+      IDENTITY: "",
+      REPUTATION: "",
+      TREASURY: "", // Gnosis Safe address
+    },
+  },
+};
+
+// Active network (toggle between "sepolia" and "mainnet")
+const ACTIVE_NETWORK = "sepolia";
+const activeConfig = NETWORKS[ACTIVE_NETWORK];
+
+export const CHAIN_ID = activeConfig.chainId;
+export const SEPOLIA_RPC = activeConfig.rpc;
+export const ETHERSCAN_BASE = activeConfig.explorer;
+export const ADDRESSES = activeConfig.addresses;
+export { NETWORKS, ACTIVE_NETWORK };
 
 // ── ABIs ────────────────────────────────────────────────────────────────────
 
@@ -34,10 +79,11 @@ export const TOKEN_ABI = [
 
 export const VERIFIER_ABI = [
   "function recordPayment(address server, bytes32 nonce, uint64 minPrice) external",
-  "function recordBatchPayment(address server, bytes32 nonce, uint64 totalAmount, uint32 requestCount, uint64 pricePerRequest) external",
+  "function recordBatchPayment(address server, bytes32 nonce, uint32 requestCount, uint64 pricePerRequest) external",
   "function usedNonces(bytes32 nonce) external view returns (bool)",
-  "event PaymentRecorded(address indexed payer, address indexed server, bytes32 indexed nonce, uint64 minPrice)",
-  "event BatchPaymentRecorded(address indexed payer, address indexed server, bytes32 indexed nonce, uint64 totalAmount, uint32 requestCount)",
+  "function trustedToken() external view returns (address)",
+  "event PaymentVerified(address indexed payer, address indexed server, bytes32 indexed nonce, uint64 minPrice)",
+  "event BatchPaymentRecorded(address indexed payer, address indexed server, bytes32 indexed nonce, uint32 requestCount, uint64 pricePerRequest)",
 ];
 
 export const USDC_ABI = [
@@ -75,10 +121,17 @@ export const ACP_ABI = [
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 export function parseUSDCAmount(amount: string): bigint {
+  if (!/^\d+(\.\d{1,6})?$/.test(amount)) {
+    throw new Error("Invalid USDC amount format. Use digits with up to 6 decimal places.");
+  }
   const parts = amount.split(".");
   const intPart = parts[0] || "0";
   const decPart = (parts[1] || "").padEnd(6, "0").slice(0, 6);
-  return BigInt(intPart) * 1_000_000n + BigInt(decPart);
+  const result = BigInt(intPart) * 1_000_000n + BigInt(decPart);
+  if (result > 0xFFFFFFFFFFFFFFFFn) {
+    throw new Error("Amount exceeds maximum (uint64)");
+  }
+  return result;
 }
 
 export function formatUSDC(raw: bigint | number): string {

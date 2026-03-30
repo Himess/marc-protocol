@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.24;
+pragma solidity 0.8.27;
 
 /// @title IConfidentialUSDC — ConfidentialUSDC token interface (V4.0)
 /// @notice ERC-7984 + ERC7984ERC20Wrapper base functions (name, symbol, decimals,

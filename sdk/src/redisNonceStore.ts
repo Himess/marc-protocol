@@ -43,16 +43,8 @@ export class RedisNonceStore implements NonceStore {
     this.ttlSeconds = options.ttlSeconds ?? 86400;
   }
 
-  async check(nonce: string): Promise<boolean> {
-    const result = await this.redis.get(this.prefix + nonce);
-    return result === null;
-  }
-
-  async add(nonce: string): Promise<void> {
-    await this.redis.set(this.prefix + nonce, "1", "EX", this.ttlSeconds);
-  }
-
-  /** Atomic check-and-add using SET NX EX. Returns true if nonce is new. */
+  /** Atomic check-and-add using SET NX EX. Returns true if nonce is new.
+   *  This is the only method — no separate check/add to prevent TOCTOU race. */
   async checkAndAdd(nonce: string): Promise<boolean> {
     // SET key value EX ttl NX — only sets if key does NOT exist
     // Returns "OK" if set, null if key already existed
@@ -65,4 +57,6 @@ export class RedisNonceStore implements NonceStore {
 export interface RedisLike {
   get(key: string): Promise<string | null>;
   set(key: string, value: string, ...args: unknown[]): Promise<string | null>;
+  /** Atomic decrement. Returns new value. Used by RedisBatchCreditStore for atomic credit consumption. */
+  decr?(key: string): Promise<number>;
 }

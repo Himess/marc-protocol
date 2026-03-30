@@ -180,6 +180,7 @@ describe("FhePaymentHandler", () => {
         nonce: "0x" + "ff".repeat(32),
         from: "0xAlice",
         chainId: 11155111,
+        signature: "0xtest",
       };
       const encoded = Buffer.from(JSON.stringify(payload)).toString("base64");
       const decoded = decodePaymentHeader(encoded);

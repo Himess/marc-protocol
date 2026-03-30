@@ -56,6 +56,11 @@ export function encodeJobDescription(title: string, details: string, requirement
   if (title.includes("|") || details.includes("|")) {
     throw new Error("Job description fields must not contain '|' character");
   }
+  for (const req of requirements) {
+    if (req.includes("|") || req.includes(";")) {
+      throw new Error("Requirements must not contain '|' or ';' characters");
+    }
+  }
 
   const parts: string[] = [];
 

@@ -1,0 +1,29 @@
+{
+  "name": "@marc-protocol/x402-scheme",
+  "version": "4.3.0",
+  "description": "MARC Protocol FHE confidential payment scheme for x402",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "ethers": "^6.0.0",
+    "@zama-fhe/relayer-sdk": ">=0.4.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "vitest": "^3.0.0",
+    "typescript": "^5.0.0"
+  },
+  "license": "BUSL-1.1"
+}

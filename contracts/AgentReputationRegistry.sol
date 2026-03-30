@@ -1,13 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity 0.8.27;
 
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+
+/// @notice Minimal interface to check used nonces on X402PaymentVerifier
+interface IX402Verifier {
+    function usedNonces(bytes32 nonce) external view returns (bool);
+}
 
 /**
  * @title AgentReputationRegistry
  * @notice ERC-8004 Reputation Registry — on-chain feedback for AI agents.
  * @dev Anyone can give scored feedback with tags and proof-of-payment.
+ *      V4.4: Verifies proofOfPayment against X402PaymentVerifier nonce registry.
  */
 contract AgentReputationRegistry is Ownable2Step, Pausable {
     struct Feedback {
@@ -23,18 +29,26 @@ contract AgentReputationRegistry is Ownable2Step, Pausable {
         uint256 lastUpdated;
     }
 
+    /// @notice X402PaymentVerifier used to validate proof-of-payment nonces
+    IX402Verifier public immutable verifier;
+
     mapping(uint256 => Feedback[]) public feedbackList;
     mapping(uint256 => Summary) public summaries;
 
     // --- Custom Errors ---
     error InvalidAgentId();
     error ProofRequired();
+    error InvalidProofOfPayment();
+    error ZeroAddress();
     error IndexOutOfBounds(uint256 agentId, uint256 index, uint256 length);
 
     // --- Events ---
     event FeedbackGiven(uint256 indexed agentId, address indexed reviewer, uint8 score);
 
-    constructor() Ownable(msg.sender) {}
+    constructor(address _verifier) Ownable(msg.sender) {
+        if (_verifier == address(0)) revert ZeroAddress();
+        verifier = IX402Verifier(_verifier);
+    }
 
     /**
      * @notice Submit feedback for an agent.
@@ -51,6 +65,9 @@ contract AgentReputationRegistry is Ownable2Step, Pausable {
     ) external whenNotPaused {
         if (agentId == 0) revert InvalidAgentId();
         if (proofOfPayment.length == 0) revert ProofRequired();
+        // Verify the proof-of-payment is a valid nonce recorded in X402PaymentVerifier
+        bytes32 nonce = bytes32(proofOfPayment);
+        if (!verifier.usedNonces(nonce)) revert InvalidProofOfPayment();
 
         feedbackList[agentId].push(Feedback({
             reviewer: msg.sender,

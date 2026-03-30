@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.24;
+pragma solidity 0.8.27;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -74,25 +74,7 @@ contract AgenticCommerceProtocol is IACP, Ownable2Step, ReentrancyGuard, Pausabl
         string calldata description,
         address hook
     ) external whenNotPaused returns (uint256 jobId) {
-        if (evaluator == address(0)) revert InvalidEvaluator();
-        if (evaluator == msg.sender) revert SelfDealing();
-        if (expiredAt <= block.timestamp) revert InvalidExpiry();
-
-        jobId = _nextJobId++;
-        Job storage job = _jobs[jobId];
-        job.client = msg.sender;
-        job.provider = provider;
-        job.evaluator = evaluator;
-        job.expiredAt = expiredAt;
-        job.description = description;
-        job.status = JobStatus.Open;
-        job.hook = hook;
-
-        if (hook != address(0)) {
-            try IACPHook(hook).afterAction{gas: 100_000}(jobId, this.createJob.selector, abi.encode(msg.sender, provider, evaluator)) {} catch { emit HookFailed(jobId, this.createJob.selector); }
-        }
-
-        emit JobCreated(jobId, msg.sender, provider, evaluator, expiredAt);
+        jobId = _createJob(provider, evaluator, expiredAt, description, hook);
     }
 
     /// @notice Set or update the provider for an open job. Client only.
@@ -111,12 +93,7 @@ contract AgenticCommerceProtocol is IACP, Ownable2Step, ReentrancyGuard, Pausabl
     /// @param jobId The job to update
     /// @param amount The budget amount in payment token units
     function setBudget(uint256 jobId, uint256 amount) external jobExists(jobId) {
-        Job storage job = _jobs[jobId];
-        if (msg.sender != job.client) revert Unauthorized();
-        if (job.status != JobStatus.Open) revert InvalidStatus();
-        if (amount == 0) revert ZeroBudget();
-        job.budget = amount;
-        emit BudgetSet(jobId, amount);
+        _setBudget(jobId, amount);
     }
 
     /// @notice Fund an open job by transferring the budget amount. Client only.
@@ -125,19 +102,29 @@ contract AgenticCommerceProtocol is IACP, Ownable2Step, ReentrancyGuard, Pausabl
     /// @param expectedBudget Must match the current budget (prevents front-running)
     function fund(uint256 jobId, uint256 expectedBudget) external nonReentrant jobExists(jobId) whenNotPaused {
         Job storage job = _jobs[jobId];
-        if (msg.sender != job.client) revert Unauthorized();
-        if (job.status != JobStatus.Open) revert InvalidStatus();
-        if (job.budget == 0) revert ZeroBudget();
         if (job.budget != expectedBudget) revert BudgetMismatch();
+        _fund(jobId, job.budget);
+    }
 
-        job.status = JobStatus.Funded;
-        paymentToken.safeTransferFrom(msg.sender, address(this), job.budget);
-
-        if (job.hook != address(0)) {
-            try IACPHook(job.hook).afterAction{gas: 100_000}(jobId, this.fund.selector, abi.encode(msg.sender, job.budget)) {} catch { emit HookFailed(jobId, this.fund.selector); }
-        }
-
-        emit JobFunded(jobId, msg.sender, job.budget);
+    /// @notice Create a job and fund it in a single transaction.
+    /// @param provider The address that will deliver the work (can be set later)
+    /// @param evaluator The address that approves or rejects the deliverable
+    /// @param expiredAt Unix timestamp after which the client can claim a refund
+    /// @param description Human-readable job description
+    /// @param hook Optional IACPHook contract for lifecycle callbacks
+    /// @param budget The budget amount in payment token units
+    /// @return jobId The ID of the newly created and funded job
+    function createAndFund(
+        address provider,
+        address evaluator,
+        uint256 expiredAt,
+        string calldata description,
+        address hook,
+        uint256 budget
+    ) external nonReentrant whenNotPaused returns (uint256 jobId) {
+        jobId = _createJob(provider, evaluator, expiredAt, description, hook);
+        _setBudget(jobId, budget);
+        _fund(jobId, budget);
     }
 
     /// @notice Submit a deliverable for a funded job. Provider only.
@@ -193,9 +180,10 @@ contract AgenticCommerceProtocol is IACP, Ownable2Step, ReentrancyGuard, Pausabl
     ///         Evaluator can reject Funded or Submitted jobs.
     ///         Note: At Funded status, both client and evaluator may race to reject.
     ///         The first transaction wins; the second reverts with InvalidStatus.
+    ///         Intentional: whenNotPaused — during emergency pause, no fund movements allowed.
     /// @param jobId The job to reject
     /// @param reason Reason hash for the rejection
-    function reject(uint256 jobId, bytes32 reason) external nonReentrant jobExists(jobId) {
+    function reject(uint256 jobId, bytes32 reason) external nonReentrant jobExists(jobId) whenNotPaused {
         Job storage job = _jobs[jobId];
         bool isClient = msg.sender == job.client;
         bool isEvaluator = msg.sender == job.evaluator;
@@ -222,8 +210,9 @@ contract AgenticCommerceProtocol is IACP, Ownable2Step, ReentrancyGuard, Pausabl
     }
 
     /// @notice Claim a refund for an expired job that was funded but not completed.
+    ///         Intentional: whenNotPaused — during emergency pause, no fund movements allowed.
     /// @param jobId The expired job to claim a refund for
-    function claimRefund(uint256 jobId) external nonReentrant jobExists(jobId) {
+    function claimRefund(uint256 jobId) external nonReentrant jobExists(jobId) whenNotPaused {
         Job storage job = _jobs[jobId];
         if (msg.sender != job.client) revert Unauthorized();
         if (block.timestamp < job.expiredAt) revert InvalidStatus();
@@ -233,6 +222,67 @@ contract AgenticCommerceProtocol is IACP, Ownable2Step, ReentrancyGuard, Pausabl
         paymentToken.safeTransfer(job.client, job.budget);
 
         emit Refunded(jobId, job.client, job.budget);
+    }
+
+    // ═══════════════════════════════════════
+    // INTERNAL
+    // ═══════════════════════════════════════
+
+    /// @dev Internal createJob logic used by createJob() and createAndFund().
+    function _createJob(
+        address provider,
+        address evaluator,
+        uint256 expiredAt,
+        string calldata description,
+        address hook
+    ) internal returns (uint256 jobId) {
+        if (evaluator == address(0)) revert InvalidEvaluator();
+        if (evaluator == msg.sender) revert SelfDealing();
+        if (evaluator == provider && provider != address(0)) revert SelfDealing();
+        if (expiredAt <= block.timestamp) revert InvalidExpiry();
+
+        jobId = _nextJobId++;
+        Job storage job = _jobs[jobId];
+        job.client = msg.sender;
+        job.provider = provider;
+        job.evaluator = evaluator;
+        job.expiredAt = expiredAt;
+        job.description = description;
+        job.status = JobStatus.Open;
+        job.hook = hook;
+
+        if (hook != address(0)) {
+            try IACPHook(hook).afterAction{gas: 100_000}(jobId, this.createJob.selector, abi.encode(msg.sender, provider, evaluator)) {} catch { emit HookFailed(jobId, this.createJob.selector); }
+        }
+
+        emit JobCreated(jobId, msg.sender, provider, evaluator, expiredAt);
+    }
+
+    /// @dev Internal setBudget logic used by setBudget() and createAndFund().
+    function _setBudget(uint256 jobId, uint256 amount) internal {
+        Job storage job = _jobs[jobId];
+        if (msg.sender != job.client) revert Unauthorized();
+        if (job.status != JobStatus.Open) revert InvalidStatus();
+        if (amount == 0) revert ZeroBudget();
+        job.budget = amount;
+        emit BudgetSet(jobId, amount);
+    }
+
+    /// @dev Internal fund logic used by fund() and createAndFund().
+    function _fund(uint256 jobId, uint256 amount) internal {
+        Job storage job = _jobs[jobId];
+        if (msg.sender != job.client) revert Unauthorized();
+        if (job.status != JobStatus.Open) revert InvalidStatus();
+        if (job.budget == 0) revert ZeroBudget();
+
+        job.status = JobStatus.Funded;
+        paymentToken.safeTransferFrom(msg.sender, address(this), amount);
+
+        if (job.hook != address(0)) {
+            try IACPHook(job.hook).afterAction{gas: 100_000}(jobId, this.fund.selector, abi.encode(msg.sender, job.budget)) {} catch { emit HookFailed(jobId, this.fund.selector); }
+        }
+
+        emit JobFunded(jobId, msg.sender, job.budget);
     }
 
     // ═══════════════════════════════════════

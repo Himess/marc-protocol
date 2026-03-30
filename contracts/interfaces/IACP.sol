@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.24;
+pragma solidity 0.8.27;
 
 /// @notice Hook interface for ACP job lifecycle callbacks.
 /// @dev Hooks are called with a gas limit of 100,000. If the hook reverts or

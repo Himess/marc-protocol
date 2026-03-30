@@ -62,7 +62,7 @@ export default function PayTab({ signer, address, onStatus, onTx, fhevm }: Props
       const nonce = ethers.hexlify(ethers.randomBytes(32));
       let r2: any;
       if (isBatch) {
-        r2 = await (await verifier.recordBatchPayment(recipient, nonce, total, count, pricePerReq)).wait();
+        r2 = await (await verifier.recordBatchPayment(recipient, nonce, count, pricePerReq)).wait();
       } else {
         r2 = await (await verifier.recordPayment(recipient, nonce, total)).wait();
       }

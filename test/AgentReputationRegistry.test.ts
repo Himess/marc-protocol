@@ -3,6 +3,7 @@ import { ethers } from "hardhat";
 
 describe("AgentReputationRegistry", function () {
   let reputation: any;
+  let mockVerifier: any;
   let owner: any;
   let reviewer1: any;
   let reviewer2: any;
@@ -11,8 +12,16 @@ describe("AgentReputationRegistry", function () {
   const AGENT_ID_1 = 1;
   const AGENT_ID_2 = 2;
 
-  // Helper: create a proof bytes from a nonce
-  function makeProof(nonce: string): string {
+  // Helper: create a nonce, register it in the mock verifier, and return the proof bytes
+  async function makeRegisteredProof(): Promise<string> {
+    const nonce = ethers.hexlify(ethers.randomBytes(32));
+    await mockVerifier.registerNonce(nonce);
+    return ethers.solidityPacked(["bytes32"], [nonce]);
+  }
+
+  // Helper: create a proof bytes from a nonce WITHOUT registering (for negative tests)
+  function makeUnregisteredProof(): string {
+    const nonce = ethers.hexlify(ethers.randomBytes(32));
     return ethers.solidityPacked(["bytes32"], [nonce]);
   }
 
@@ -24,8 +33,12 @@ describe("AgentReputationRegistry", function () {
   beforeEach(async function () {
     [owner, reviewer1, reviewer2, reviewer3] = await ethers.getSigners();
 
+    const MockVerifier = await ethers.getContractFactory("MockX402Verifier");
+    mockVerifier = await MockVerifier.deploy();
+    await mockVerifier.waitForDeployment();
+
     const Reputation = await ethers.getContractFactory("AgentReputationRegistry");
-    reputation = await Reputation.deploy();
+    reputation = await Reputation.deploy(await mockVerifier.getAddress());
     await reputation.waitForDeployment();
   });
 
@@ -52,7 +65,7 @@ describe("AgentReputationRegistry", function () {
   describe("giveFeedback", function () {
     it("submits feedback with score, tags, and proof", async function () {
       const tags = makeTags(["reliable", "fast"]);
-      const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof = await makeRegisteredProof();
 
       const tx = await reputation.connect(reviewer1).giveFeedback(
         AGENT_ID_1, 200, tags, proof
@@ -72,7 +85,7 @@ describe("AgentReputationRegistry", function () {
     });
 
     it("emits FeedbackGiven event", async function () {
-      const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof = await makeRegisteredProof();
 
       await expect(
         reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 150, [], proof)
@@ -82,7 +95,7 @@ describe("AgentReputationRegistry", function () {
     });
 
     it("reverts on invalid agent ID (0)", async function () {
-      const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof = await makeRegisteredProof();
       await expect(
         reputation.connect(reviewer1).giveFeedback(0, 100, [], proof)
       ).to.be.revertedWithCustomError(reputation, "InvalidAgentId");
@@ -94,8 +107,15 @@ describe("AgentReputationRegistry", function () {
       ).to.be.revertedWithCustomError(reputation, "ProofRequired");
     });
 
+    it("reverts on invalid proof of payment (nonce not in verifier)", async function () {
+      const proof = makeUnregisteredProof();
+      await expect(
+        reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 100, [], proof)
+      ).to.be.revertedWithCustomError(reputation, "InvalidProofOfPayment");
+    });
+
     it("accepts score of 0", async function () {
-      const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof = await makeRegisteredProof();
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 0, [], proof);
 
       const [reviewer, score] = await reputation.getFeedback(AGENT_ID_1, 0);
@@ -103,7 +123,7 @@ describe("AgentReputationRegistry", function () {
     });
 
     it("accepts max score of 255", async function () {
-      const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof = await makeRegisteredProof();
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 255, [], proof);
 
       const [, score] = await reputation.getFeedback(AGENT_ID_1, 0);
@@ -111,7 +131,7 @@ describe("AgentReputationRegistry", function () {
     });
 
     it("accepts feedback with no tags", async function () {
-      const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof = await makeRegisteredProof();
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 100, [], proof);
 
       const [, , tags] = await reputation.getFeedback(AGENT_ID_1, 0);
@@ -120,7 +140,7 @@ describe("AgentReputationRegistry", function () {
 
     it("accepts feedback with multiple tags", async function () {
       const tags = makeTags(["reliable", "fast", "accurate", "cheap"]);
-      const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof = await makeRegisteredProof();
 
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 200, tags, proof);
 
@@ -129,8 +149,8 @@ describe("AgentReputationRegistry", function () {
     });
 
     it("allows same reviewer to give feedback multiple times", async function () {
-      const proof1 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
-      const proof2 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof1 = await makeRegisteredProof();
+      const proof2 = await makeRegisteredProof();
 
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 200, [], proof1);
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 100, [], proof2);
@@ -152,7 +172,7 @@ describe("AgentReputationRegistry", function () {
     });
 
     it("calculates average score correctly (single feedback)", async function () {
-      const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof = await makeRegisteredProof();
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 200, [], proof);
 
       const [total, avg] = await reputation.getSummary(AGENT_ID_1);
@@ -161,9 +181,9 @@ describe("AgentReputationRegistry", function () {
     });
 
     it("calculates average score correctly (multiple feedbacks)", async function () {
-      const proof1 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
-      const proof2 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
-      const proof3 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof1 = await makeRegisteredProof();
+      const proof2 = await makeRegisteredProof();
+      const proof3 = await makeRegisteredProof();
 
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 200, [], proof1);
       await reputation.connect(reviewer2).giveFeedback(AGENT_ID_1, 100, [], proof2);
@@ -176,8 +196,8 @@ describe("AgentReputationRegistry", function () {
     });
 
     it("average uses integer division (rounds down)", async function () {
-      const proof1 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
-      const proof2 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof1 = await makeRegisteredProof();
+      const proof2 = await makeRegisteredProof();
 
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 5, [], proof1);
       await reputation.connect(reviewer2).giveFeedback(AGENT_ID_1, 4, [], proof2);
@@ -188,7 +208,7 @@ describe("AgentReputationRegistry", function () {
     });
 
     it("updates lastUpdated timestamp", async function () {
-      const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof = await makeRegisteredProof();
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 200, [], proof);
 
       const [, , lastUpdated] = await reputation.getSummary(AGENT_ID_1);
@@ -199,8 +219,8 @@ describe("AgentReputationRegistry", function () {
     });
 
     it("different agents have independent summaries", async function () {
-      const proof1 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
-      const proof2 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof1 = await makeRegisteredProof();
+      const proof2 = await makeRegisteredProof();
 
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 255, [], proof1);
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_2, 50, [], proof2);
@@ -222,7 +242,7 @@ describe("AgentReputationRegistry", function () {
   describe("getFeedback", function () {
     it("returns correct feedback entry", async function () {
       const tags = makeTags(["reliable"]);
-      const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof = await makeRegisteredProof();
 
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 180, tags, proof);
 
@@ -234,8 +254,8 @@ describe("AgentReputationRegistry", function () {
     });
 
     it("returns multiple feedback entries in order", async function () {
-      const proof1 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
-      const proof2 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof1 = await makeRegisteredProof();
+      const proof2 = await makeRegisteredProof();
 
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 200, [], proof1);
       await reputation.connect(reviewer2).giveFeedback(AGENT_ID_1, 100, [], proof2);
@@ -256,7 +276,7 @@ describe("AgentReputationRegistry", function () {
     });
 
     it("reverts on index just past the end", async function () {
-      const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof = await makeRegisteredProof();
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 100, [], proof);
 
       await expect(
@@ -272,7 +292,7 @@ describe("AgentReputationRegistry", function () {
   describe("Pausable", function () {
     it("pause blocks giveFeedback", async function () {
       await reputation.connect(owner).pause();
-      const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof = await makeRegisteredProof();
 
       await expect(
         reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 100, [], proof)
@@ -283,7 +303,7 @@ describe("AgentReputationRegistry", function () {
       await reputation.connect(owner).pause();
       await reputation.connect(owner).unpause();
 
-      const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof = await makeRegisteredProof();
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 100, [], proof);
       expect(await reputation.feedbackCount(AGENT_ID_1)).to.equal(1n);
     });
@@ -299,7 +319,7 @@ describe("AgentReputationRegistry", function () {
     });
 
     it("getSummary and getFeedback still work when paused", async function () {
-      const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof = await makeRegisteredProof();
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 200, [], proof);
 
       await reputation.connect(owner).pause();
@@ -325,16 +345,16 @@ describe("AgentReputationRegistry", function () {
 
     it("increments with each feedback", async function () {
       for (let i = 0; i < 5; i++) {
-        const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+        const proof = await makeRegisteredProof();
         await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 100 + i, [], proof);
       }
       expect(await reputation.feedbackCount(AGENT_ID_1)).to.equal(5n);
     });
 
     it("tracks count per agent independently", async function () {
-      const proof1 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
-      const proof2 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
-      const proof3 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof1 = await makeRegisteredProof();
+      const proof2 = await makeRegisteredProof();
+      const proof3 = await makeRegisteredProof();
 
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 200, [], proof1);
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 200, [], proof2);
@@ -352,7 +372,7 @@ describe("AgentReputationRegistry", function () {
   describe("Edge Cases", function () {
     it("handles large number of feedbacks (10)", async function () {
       for (let i = 0; i < 10; i++) {
-        const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+        const proof = await makeRegisteredProof();
         await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 100 + i, [], proof);
       }
 
@@ -364,7 +384,7 @@ describe("AgentReputationRegistry", function () {
 
     it("handles all-zero scores", async function () {
       for (let i = 0; i < 3; i++) {
-        const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+        const proof = await makeRegisteredProof();
         await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 0, [], proof);
       }
 
@@ -375,7 +395,7 @@ describe("AgentReputationRegistry", function () {
 
     it("handles all-max scores", async function () {
       for (let i = 0; i < 3; i++) {
-        const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+        const proof = await makeRegisteredProof();
         await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 255, [], proof);
       }
 
@@ -385,7 +405,10 @@ describe("AgentReputationRegistry", function () {
     });
 
     it("handles large proof data", async function () {
-      const largeProof = ethers.hexlify(ethers.randomBytes(256));
+      // Large proof — first 32 bytes used as nonce, must be registered
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      await mockVerifier.registerNonce(nonce);
+      const largeProof = nonce + ethers.hexlify(ethers.randomBytes(224)).slice(2);
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 100, [], largeProof);
 
       expect(await reputation.feedbackCount(AGENT_ID_1)).to.equal(1n);
@@ -393,7 +416,7 @@ describe("AgentReputationRegistry", function () {
 
     it("handles many tags", async function () {
       const tags = makeTags(["a", "b", "c", "d", "e", "f", "g", "h"]);
-      const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof = await makeRegisteredProof();
 
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 200, tags, proof);
 
@@ -402,9 +425,9 @@ describe("AgentReputationRegistry", function () {
     });
 
     it("multiple reviewers for same agent", async function () {
-      const proof1 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
-      const proof2 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
-      const proof3 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof1 = await makeRegisteredProof();
+      const proof2 = await makeRegisteredProof();
+      const proof3 = await makeRegisteredProof();
 
       await reputation.connect(reviewer1).giveFeedback(AGENT_ID_1, 200, [], proof1);
       await reputation.connect(reviewer2).giveFeedback(AGENT_ID_1, 150, [], proof2);
@@ -423,14 +446,14 @@ describe("AgentReputationRegistry", function () {
   describe("Gas Report", function () {
     it("measures gas for key operations", async function () {
       const tags = makeTags(["reliable", "fast"]);
-      const proof = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof = await makeRegisteredProof();
 
       const fbTx = await reputation.connect(reviewer1).giveFeedback(
         AGENT_ID_1, 200, tags, proof
       );
       const fbReceipt = await fbTx.wait();
 
-      const proof2 = makeProof(ethers.hexlify(ethers.randomBytes(32)));
+      const proof2 = await makeRegisteredProof();
       const fbNoTagsTx = await reputation.connect(reviewer2).giveFeedback(
         AGENT_ID_1, 150, [], proof2
       );

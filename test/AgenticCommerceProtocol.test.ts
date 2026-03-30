@@ -236,6 +236,21 @@ describe("AgenticCommerceProtocol", function () {
       ).to.be.revertedWithCustomError(acp, "SelfDealing");
     });
 
+    it("reverts when evaluator equals provider (collusion prevention)", async function () {
+      const expiry = await futureExpiry();
+      await expect(
+        acp
+          .connect(client)
+          .createJob(
+            provider.address,
+            provider.address, // evaluator == provider
+            expiry,
+            "Test job",
+            ethers.ZeroAddress
+          )
+      ).to.be.revertedWithCustomError(acp, "SelfDealing");
+    });
+
     it("reverts if expiry is in the past", async function () {
       const block = await ethers.provider.getBlock("latest");
       const pastExpiry = block!.timestamp - 1;
