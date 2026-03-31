@@ -77,6 +77,32 @@
 - Dead error codes removed from SDK
 - Documentation fully rewritten for V4.0 architecture
 
+## V4.2 — Single-TX Payment (Complete)
+
+- payAndRecord: single-TX payment via verifier (confidentialTransferFrom + recordPayment)
+- confidentialTransferAndCall: composable transfer with arbitrary callback
+- SDK: preferSingleTx option for FhePaymentHandler
+- Reduced gas overhead by ~40% for single-TX flow
+- EIP-191 signature verification on payment payloads
+
+## V4.3 — Batch Prepayment + Agent Commerce (Complete)
+
+- Batch prepayment: recordBatchPayment for N requests at fixed price
+- ERC-8183 integration: AgenticCommerceProtocol (job escrow with FHE-encrypted budgets)
+- ConfidentialACP: createAndFund, submit, complete, reject, claimRefund lifecycle
+- ERC-8004 integration: AgentIdentityRegistry + AgentReputationRegistry
+- MCP server with 10 tools for agent-to-agent commerce
+- Multi-chain config (Sepolia, Mainnet, Base, Arbitrum addresses)
+- 800+ tests across all packages
+
+## V4.4 — Audit Fixes (Complete)
+
+- Security hardening: CORS default changed to block-all, timing-safe comparison improved
+- Config consolidation: single source of truth for contract addresses in chains.ts
+- FHE encryption deduplication: shared _encryptAmount() helper
+- Version consistency across all packages (4.3.0)
+- 922 tests passing
+
 ## V5.0 — Production Polish (Planned)
 
 - ESLint v10 migration (flat config)

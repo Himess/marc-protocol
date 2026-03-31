@@ -1,6 +1,6 @@
 {
   "name": "@fhe-x402/openclaw-skill",
-  "version": "0.1.0",
+  "version": "4.3.0",
   "description": "OpenClaw skill for FHE x402 encrypted payments",
   "type": "module",
   "scripts": {

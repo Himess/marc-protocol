@@ -198,8 +198,8 @@ export const TOKEN_ABI = [
   "event TreasuryWithdrawn(address indexed treasury, uint256 amount)",
 ] as const;
 
-/** ConfidentialACP deployed address (Sepolia) */
-export const CONFIDENTIAL_ACP_ADDRESS = "0xC67B36474AA66D1c2E13029d22F93aBa3c5f6708" as const;
+/** ConfidentialACP deployed address (Sepolia) — sourced from chains.ts */
+export { CONFIDENTIAL_ACP_ADDRESS } from "./chains.js";
 
 /** ConfidentialACP ABI — FHE-encrypted ERC-8183 job escrow */
 export const CONFIDENTIAL_ACP_ABI = [

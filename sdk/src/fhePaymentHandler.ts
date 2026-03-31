@@ -61,6 +61,40 @@ export class FhePaymentHandler {
     this.options = options;
   }
 
+  /**
+   * Encrypt an amount using @zama-fhe/relayer-sdk with timeout.
+   * Shared by createPayment, createSingleTxPayment, and createBatchPayment.
+   */
+  private async _encryptAmount(
+    amount: bigint,
+    tokenAddress: string,
+    signerAddress: string
+  ): Promise<{ handles: string[]; inputProof: string }> {
+    let encrypted: { handles: string[]; inputProof: string };
+    try {
+      const input = this.fhevmInstance.createEncryptedInput(tokenAddress, signerAddress);
+      input.add64(amount);
+      let timeoutId: ReturnType<typeof setTimeout>;
+      encrypted = await Promise.race([
+        input.encrypt().finally(() => clearTimeout(timeoutId)),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error("FHE encryption timed out after 30s")), 30_000);
+        }),
+      ]);
+    } catch (err) {
+      throw new EncryptionError(`FHE encryption failed: ${err instanceof Error ? err.message : String(err)}`, {
+        amount: amount.toString(),
+        tokenAddress,
+      });
+    }
+
+    if (!encrypted.handles || encrypted.handles.length === 0) {
+      throw new EncryptionError("FHE encryption returned no handles", {});
+    }
+
+    return encrypted;
+  }
+
   async parsePaymentRequired(response: Response): Promise<FhePaymentRequired | null> {
     if (response.status !== 402) return null;
     try {
@@ -97,27 +131,7 @@ export class FhePaymentHandler {
     const nonce = ethers.hexlify(ethers.randomBytes(32));
 
     // Encrypt amount with @zama-fhe/relayer-sdk
-    let encrypted: { handles: string[]; inputProof: string };
-    try {
-      const input = this.fhevmInstance.createEncryptedInput(requirements.tokenAddress, signerAddress);
-      input.add64(amount);
-      let timeoutId: ReturnType<typeof setTimeout>;
-      encrypted = await Promise.race([
-        input.encrypt().finally(() => clearTimeout(timeoutId)),
-        new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error("FHE encryption timed out after 30s")), 30_000);
-        }),
-      ]);
-    } catch (err) {
-      throw new EncryptionError(`FHE encryption failed: ${err instanceof Error ? err.message : String(err)}`, {
-        amount: amount.toString(),
-        tokenAddress: requirements.tokenAddress,
-      });
-    }
-
-    if (!encrypted.handles || encrypted.handles.length === 0) {
-      throw new EncryptionError("FHE encryption returned no handles", {});
-    }
+    const encrypted = await this._encryptAmount(amount, requirements.tokenAddress, signerAddress);
 
     // Step 1: Call cUSDC.confidentialTransfer() — fee-free agent-to-agent transfer
     const tokenABI = [
@@ -205,27 +219,7 @@ export class FhePaymentHandler {
     const nonce = ethers.hexlify(ethers.randomBytes(32));
 
     // Encrypt amount with @zama-fhe/relayer-sdk
-    let encrypted: { handles: string[]; inputProof: string };
-    try {
-      const input = this.fhevmInstance.createEncryptedInput(requirements.tokenAddress, signerAddress);
-      input.add64(amount);
-      let timeoutId: ReturnType<typeof setTimeout>;
-      encrypted = await Promise.race([
-        input.encrypt().finally(() => clearTimeout(timeoutId)),
-        new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error("FHE encryption timed out after 30s")), 30_000);
-        }),
-      ]);
-    } catch (err) {
-      throw new EncryptionError(`FHE encryption failed: ${err instanceof Error ? err.message : String(err)}`, {
-        amount: amount.toString(),
-        tokenAddress: requirements.tokenAddress,
-      });
-    }
-
-    if (!encrypted.handles || encrypted.handles.length === 0) {
-      throw new EncryptionError("FHE encryption returned no handles", {});
-    }
+    const encrypted = await this._encryptAmount(amount, requirements.tokenAddress, signerAddress);
 
     // Single TX: verifier.payAndRecord() — does confidentialTransferFrom + recordPayment
     // NOTE: Requires agent to have set verifier as operator:
@@ -359,27 +353,7 @@ export class FhePaymentHandler {
     const nonce = ethers.hexlify(ethers.randomBytes(32));
 
     // Encrypt total amount with @zama-fhe/relayer-sdk
-    let encrypted: { handles: string[]; inputProof: string };
-    try {
-      const input = this.fhevmInstance.createEncryptedInput(requirements.tokenAddress, signerAddress);
-      input.add64(totalAmount);
-      let timeoutId: ReturnType<typeof setTimeout>;
-      encrypted = await Promise.race([
-        input.encrypt().finally(() => clearTimeout(timeoutId)),
-        new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(() => reject(new Error("FHE encryption timed out after 30s")), 30_000);
-        }),
-      ]);
-    } catch (err) {
-      throw new EncryptionError(`FHE encryption failed: ${err instanceof Error ? err.message : String(err)}`, {
-        amount: totalAmount.toString(),
-        tokenAddress: requirements.tokenAddress,
-      });
-    }
-
-    if (!encrypted.handles || encrypted.handles.length === 0) {
-      throw new EncryptionError("FHE encryption returned no handles", {});
-    }
+    const encrypted = await this._encryptAmount(totalAmount, requirements.tokenAddress, signerAddress);
 
     // Step 1: Call cUSDC.confidentialTransfer() — fee-free agent-to-agent transfer
     const tokenABI = [

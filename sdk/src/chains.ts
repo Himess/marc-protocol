@@ -101,8 +101,12 @@ const ARBITRUM: ChainConfig = {
     acpAddress: "",
     identityAddress: "",
     reputationAddress: "",
+    confidentialAcpAddress: "",
   },
 };
+
+/** ConfidentialACP deployed address (Sepolia) */
+export const CONFIDENTIAL_ACP_ADDRESS = SEPOLIA.contracts.confidentialAcpAddress;
 
 export const CHAINS: Record<number, ChainConfig> = {
   11155111: SEPOLIA,

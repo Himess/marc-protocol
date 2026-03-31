@@ -18,6 +18,14 @@ export interface ChainContracts {
   verifierAddress: string;
   /** USDC (underlying ERC-20) */
   usdcAddress: string;
+  /** AgenticCommerceProtocol (ERC-8183 escrow) */
+  acpAddress: string;
+  /** AgentIdentityRegistry (ERC-8004) */
+  identityAddress: string;
+  /** AgentReputationRegistry (ERC-8004) */
+  reputationAddress: string;
+  /** ConfidentialACP — FHE-encrypted ERC-8183 job escrow */
+  confidentialAcpAddress: string;
 }
 
 export interface ChainConfig {
@@ -40,6 +48,10 @@ const SEPOLIA: ChainConfig = {
     tokenAddress: "0xE944754aa70d4924dc5d8E57774CDf21Df5e592D",
     verifierAddress: "0x4503A7aee235aBD10e6064BBa8E14235fdF041f4",
     usdcAddress: "0xc89e913676B034f8b38E49f7508803d1cDEC9F4f",
+    acpAddress: "0xBCA8d5ce6D57f36c7aF71954e9F7f86773a02F22",
+    identityAddress: "0xf4609D5DB3153717827703C795acb00867b69567",
+    reputationAddress: "0xd1Dd10990f317802c79077834c75742388959668",
+    confidentialAcpAddress: "0xC67B36474AA66D1c2E13029d22F93aBa3c5f6708",
   },
 };
 
@@ -54,6 +66,10 @@ const MAINNET: ChainConfig = {
     tokenAddress: "",
     verifierAddress: "",
     usdcAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    acpAddress: "",
+    identityAddress: "",
+    reputationAddress: "",
+    confidentialAcpAddress: "",
   },
 };
 
