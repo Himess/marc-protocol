@@ -9,7 +9,8 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./interfaces/IACP.sol";
 
 /// @title AgenticCommerceProtocol — ERC-8183 Job Escrow for Agent Commerce
-/// @notice Minimal escrow: client locks funds, provider submits work, evaluator confirms.
+/// @notice DEPRECATED: Use ConfidentialACP for FHE-encrypted job escrow.
+///         Minimal escrow: client locks funds, provider submits work, evaluator confirms.
 ///         Platform fee: 1% on completion. Fee goes to treasury.
 /// @dev V4.2: Integrates with FHE x402 via IACPHook for confidential escrow.
 ///      Hook callbacks are capped at 100,000 gas and wrapped in try/catch.

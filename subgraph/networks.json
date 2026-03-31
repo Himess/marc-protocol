@@ -3,6 +3,10 @@
     "ConfidentialPaymentPool": {
       "address": "0xfF87ec6cb07D8Aa26ABc81037e353A28c7752d73",
       "startBlock": 10408238
+    },
+    "ConfidentialACP": {
+      "address": "0xC67B36474AA66D1c2E13029d22F93aBa3c5f6708",
+      "startBlock": 10408238
     }
   }
 }

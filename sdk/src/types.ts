@@ -198,6 +198,45 @@ export const TOKEN_ABI = [
   "event TreasuryWithdrawn(address indexed treasury, uint256 amount)",
 ] as const;
 
+/** ConfidentialACP deployed address (Sepolia) */
+export const CONFIDENTIAL_ACP_ADDRESS = "0xC67B36474AA66D1c2E13029d22F93aBa3c5f6708" as const;
+
+/** ConfidentialACP ABI — FHE-encrypted ERC-8183 job escrow */
+export const CONFIDENTIAL_ACP_ABI = [
+  // Job lifecycle
+  "function createJob(address provider, address evaluator, uint256 expiredAt, string calldata description, address hook) external returns (uint256)",
+  "function fund(uint256 jobId, uint64 amount) external",
+  "function createAndFund(address provider, address evaluator, uint256 expiredAt, string calldata description, address hook, uint64 amount) external returns (uint256)",
+  "function submit(uint256 jobId, bytes32 deliverable) external",
+  "function complete(uint256 jobId, bytes32 reason) external",
+  "function reject(uint256 jobId, bytes32 reason) external",
+  "function claimRefund(uint256 jobId) external",
+  "function setProvider(uint256 jobId, address provider) external",
+  // View
+  "function getJob(uint256 jobId) external view returns (address client, address provider, address evaluator, string description, uint256 expiredAt, uint8 status, address hook, bytes32 deliverable)",
+  "function getJobBudget(uint256 jobId) external view returns (bytes32)",
+  "function totalJobs() external view returns (uint256)",
+  "function paymentToken() external view returns (address)",
+  "function treasury() external view returns (address)",
+  "function PLATFORM_FEE_BPS() external view returns (uint64)",
+  "function BPS() external view returns (uint64)",
+  // Admin
+  "function setTreasury(address _treasury) external",
+  "function pause() external",
+  "function unpause() external",
+  // Events
+  "event JobCreated(uint256 indexed jobId, address indexed client, address indexed provider, address evaluator, uint256 expiredAt)",
+  "event ProviderSet(uint256 indexed jobId, address indexed provider)",
+  "event JobFunded(uint256 indexed jobId, address indexed client)",
+  "event JobSubmitted(uint256 indexed jobId, address indexed provider, bytes32 deliverable)",
+  "event JobCompleted(uint256 indexed jobId, address indexed evaluator, bytes32 reason)",
+  "event JobRejected(uint256 indexed jobId, address indexed rejector, bytes32 reason)",
+  "event PaymentReleased(uint256 indexed jobId, address indexed provider)",
+  "event Refunded(uint256 indexed jobId, address indexed client)",
+  "event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury)",
+  "event HookFailed(uint256 indexed jobId, bytes4 indexed selector)",
+] as const;
+
 /** X402PaymentVerifier ABI */
 export const VERIFIER_ABI = [
   // V4.0

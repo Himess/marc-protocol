@@ -1,11 +1,16 @@
 import crypto from "crypto";
 
 /** Constant-time string comparison to prevent timing attacks.
- *  Uses hash comparison to avoid leaking length information. */
+ *  Pads both buffers to equal length to avoid leaking length information. */
 function timingSafeCompare(a: string, b: string): boolean {
-  const hashA = crypto.createHash("sha256").update(a).digest();
-  const hashB = crypto.createHash("sha256").update(b).digest();
-  return crypto.timingSafeEqual(hashA, hashB);
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  const maxLen = Math.max(bufA.length, bufB.length);
+  const paddedA = Buffer.alloc(maxLen);
+  const paddedB = Buffer.alloc(maxLen);
+  bufA.copy(paddedA);
+  bufB.copy(paddedB);
+  return crypto.timingSafeEqual(paddedA, paddedB) && bufA.length === bufB.length;
 }
 
 export interface FacilitatorConfig {
@@ -16,7 +21,7 @@ export interface FacilitatorConfig {
   version?: string;
   apiKey?: string;
   chainId?: number;
-  /** Allowed CORS origins. Empty array = allow all origins (default). */
+  /** Allowed CORS origins. Empty array = block all cross-origin requests (default). */
   allowedOrigins?: string[];
 }
 
@@ -40,7 +45,7 @@ const VERIFIER_EVENT_ABI = [
  *   });
  *   app.listen(3001);
  */
-export async function createFacilitatorServer(config: FacilitatorConfig): Promise<any> {
+export async function createFacilitatorServer(config: FacilitatorConfig): Promise<import("express").Express> {
   // Dynamic import to avoid bundling express as hard dependency
   const expressModule = await import("express");
   const express = expressModule.default ?? expressModule;
@@ -50,17 +55,15 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
   const allowedOrigins = config.allowedOrigins || [];
 
   // CORS headers for cross-origin requests
-  app.use((_req: any, res: any, nextFn: any) => {
-    const setH = res.setHeader?.bind(res) ?? res.set?.bind(res) ?? res.header?.bind(res);
-    if (setH) {
-      const origin = _req.headers?.origin;
-      if (allowedOrigins.length === 0 || (origin && allowedOrigins.includes(origin))) {
-        setH("Access-Control-Allow-Origin", origin || "*");
-        setH("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        setH("Access-Control-Allow-Headers", "Content-Type, Authorization, X-FHE-x402-API-Key");
-      }
-      // If allowedOrigins is non-empty and origin doesn't match, don't set CORS headers — block cross-origin
+  // Default (empty array) = block all cross-origin requests — callers must explicitly whitelist origins
+  app.use((_req: import("express").Request, res: import("express").Response, nextFn: import("express").NextFunction) => {
+    const origin = _req.headers?.origin;
+    if (allowedOrigins.length > 0 && origin && allowedOrigins.includes(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-FHE-x402-API-Key");
     }
+    // If allowedOrigins is empty or origin doesn't match, don't set CORS headers — block cross-origin
     if (_req.method === "OPTIONS") return res.status(204).end();
     nextFn();
   });
@@ -73,9 +76,9 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
     console.warn("[fhe-x402] WARNING: No API key configured. Facilitator endpoints are unauthenticated.");
   }
   if (config.apiKey) {
-    app.use((req: any, res: any, nextFn: any) => {
+    app.use((req: import("express").Request, res: import("express").Response, nextFn: import("express").NextFunction) => {
       if (req.path === "/health" || req.path === "/info") return nextFn();
-      const key = req.headers["x-fhe-x402-api-key"] || req.headers["authorization"]?.replace("Bearer ", "");
+      const key = (req.headers["x-fhe-x402-api-key"] as string | undefined) || req.headers["authorization"]?.replace("Bearer ", "");
       if (!key || !timingSafeCompare(key, config.apiKey!)) {
         return res.status(401).json({ valid: false, error: "Unauthorized: invalid API key" });
       }
@@ -84,7 +87,7 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
   }
 
   // Lazy-init provider with reconnection on failure
-  let _provider: any = null;
+  let _provider: import("ethers").JsonRpcProvider | null = null;
 
   async function getProvider() {
     if (_provider) {
@@ -129,7 +132,7 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
   }
 
   /** Extract client IP — prefers X-Forwarded-For for reverse proxy support. */
-  function getClientIp(req: any): string {
+  function getClientIp(req: import("express").Request): string {
     const forwarded = req.headers?.["x-forwarded-for"];
     const forwardedIp = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : undefined;
     return forwardedIp || req.socket?.remoteAddress || "unknown";
@@ -137,7 +140,7 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
 
   // === x402 Standard Endpoints ===
 
-  app.get("/info", (_req: any, res: any) => {
+  app.get("/info", (_req: import("express").Request, res: import("express").Response) => {
     res.json({
       name: config.name || "FHE x402 Facilitator",
       version: config.version || "4.3.0",
@@ -151,7 +154,7 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
   });
 
   // /verify — verify ConfidentialTransfer + PaymentVerified events on-chain
-  app.post("/verify", async (req: any, res: any) => {
+  app.post("/verify", async (req: import("express").Request, res: import("express").Response) => {
     try {
       const clientIp = getClientIp(req);
       if (!checkVerifyRateLimit(clientIp)) {
@@ -241,7 +244,7 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
     }
   });
 
-  app.get("/health", (_req: any, res: any) => {
+  app.get("/health", (_req: import("express").Request, res: import("express").Response) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 

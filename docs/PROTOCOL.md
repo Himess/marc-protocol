@@ -242,3 +242,60 @@ euint64 transferAmount = FHE.select(hasSufficientBalance, amount, ZERO);
 8. **Emergency pause** — Owner can pause wrap/unwrap operations.
 9. **Rate limiting** — Per-IP rate limiting using `req.socket.remoteAddress` (not spoofable via headers).
 10. **Minimum price commitment** — `recordPayment` requires `minPrice` so servers can verify price commitment even without seeing the encrypted amount.
+
+## Webhook Support
+
+The middleware supports optional webhook notifications for payment events. When configured, the server sends an HTTP POST to the specified URL after successful payment verification.
+
+**Configuration:**
+
+```typescript
+{
+  webhookUrl: "https://example.com/hooks/payment",
+  webhookSecret: "whsec_abc123..."
+}
+```
+
+**Payload:**
+
+```json
+{
+  "event": "payment.verified",
+  "txHash": "0x...",
+  "from": "0x...",
+  "nonce": "0x...",
+  "minPrice": "1000000",
+  "timestamp": 1711800000
+}
+```
+
+**Signature verification:**
+
+Each webhook request includes an `X-Signature-256` header containing an HMAC-SHA256 signature computed over the raw request body using the `webhookSecret`:
+
+```
+X-Signature-256: sha256=<hex-encoded HMAC-SHA256>
+```
+
+Recipients should verify this signature before processing the payload to ensure authenticity.
+
+## Batch Credit TTL
+
+When using batch (pre-paid) credits, each credit entry has a configurable time-to-live (TTL). Expired credits are automatically pruned and cannot be used for payment.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `creditTTL` | 7 days (604800s) | How long a batch credit remains valid |
+
+**Configuration:**
+
+```typescript
+{
+  batchCredits: {
+    enabled: true,
+    creditTTL: 604800 // 7 days in seconds, configurable via options
+  }
+}
+```
+
+Credits that exceed their TTL are treated as expired and rejected during payment verification. The server returns `402` with a fresh `FhePaymentRequired` response, prompting the client to re-purchase credits.

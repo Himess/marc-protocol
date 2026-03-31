@@ -76,3 +76,48 @@ type TreasuryAction @entity(immutable: true) {
   timestamp: BigInt!
   txHash: Bytes!
 }
+
+# ═══════════════════════════════════════
+# ConfidentialACP — ERC-8183 Job Escrow
+# ═══════════════════════════════════════
+
+type ConfidentialJob @entity {
+  id: String! # jobId as string
+  jobId: BigInt!
+  client: Bytes! # address
+  provider: Bytes! # address
+  evaluator: Bytes! # address
+  expiredAt: BigInt!
+  status: String! # "created" | "funded" | "submitted" | "completed" | "rejected" | "refunded"
+  deliverable: Bytes
+  completionReason: Bytes
+  rejectionReason: Bytes
+  createdAt: BigInt!
+  createdTxHash: Bytes!
+  fundedAt: BigInt
+  submittedAt: BigInt
+  completedAt: BigInt
+  rejectedAt: BigInt
+  refundedAt: BigInt
+  events: [ConfidentialJobEvent!]! @derivedFrom(field: "job")
+}
+
+type ConfidentialJobEvent @entity(immutable: true) {
+  id: Bytes! # txHash + logIndex
+  job: ConfidentialJob!
+  type: String! # "created" | "funded" | "submitted" | "completed" | "payment_released" | "rejected" | "refunded"
+  actor: Bytes! # address that triggered the event
+  data: Bytes # deliverable or reason bytes32
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: Bytes!
+}
+
+type ACPStats @entity {
+  id: String! # singleton "acp-stats"
+  totalJobs: BigInt!
+  totalFunded: BigInt!
+  totalCompleted: BigInt!
+  totalRejected: BigInt!
+  totalRefunded: BigInt!
+}
