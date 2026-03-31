@@ -5,7 +5,7 @@
 ![Chain](https://img.shields.io/badge/chain-Ethereum%20Sepolia-purple)
 ![SDK](https://img.shields.io/badge/npm-marc--protocol--sdk-red)
 
-**[Live Demo](https://marc-protocol.vercel.app)** · **[Video Pitch](https://www.youtube.com/watch?v=utipPnFrzOY)** · **[Lightpaper](docs/LIGHTPAPER.md)** · **[Audit Report](docs/AUDIT-FINDINGS-V4.3.md)**
+**[Live Demo](https://marc-landing.vercel.app)** · **[Video Pitch](https://www.youtube.com/watch?v=utipPnFrzOY)** · **[Lightpaper](docs/LIGHTPAPER.md)** · **[Audit Report](docs/AUDIT-FINDINGS-V4.3.md)**
 
 ## Overview
 
