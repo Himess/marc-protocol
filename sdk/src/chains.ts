@@ -20,6 +20,8 @@ export interface ChainContracts {
   identityAddress: string;
   /** AgentReputationRegistry (ERC-8004) */
   reputationAddress: string;
+  /** ConfidentialACP — FHE-encrypted ERC-8183 job escrow */
+  confidentialAcpAddress: string;
 }
 
 export interface ChainConfig {
@@ -45,6 +47,7 @@ const SEPOLIA: ChainConfig = {
     acpAddress: "0xBCA8d5ce6D57f36c7aF71954e9F7f86773a02F22",
     identityAddress: "0xf4609D5DB3153717827703C795acb00867b69567",
     reputationAddress: "0xd1Dd10990f317802c79077834c75742388959668",
+    confidentialAcpAddress: "0xC67B36474AA66D1c2E13029d22F93aBa3c5f6708",
   },
 };
 
@@ -62,6 +65,7 @@ const MAINNET: ChainConfig = {
     acpAddress: "",
     identityAddress: "",
     reputationAddress: "",
+    confidentialAcpAddress: "",
   },
 };
 
@@ -79,6 +83,7 @@ const BASE: ChainConfig = {
     acpAddress: "",
     identityAddress: "",
     reputationAddress: "",
+    confidentialAcpAddress: "",
   },
 };
 

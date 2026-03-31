@@ -310,7 +310,7 @@ contract ConfidentialUSDC is
         uint256,
         bytes calldata
     ) public pure override returns (bytes4) {
-        revert("ERC-1363 wrapping disabled - use wrap()");
+        revert ERC1363WrappingDisabled();
     }
 
     // ═══════════════════════════════════════

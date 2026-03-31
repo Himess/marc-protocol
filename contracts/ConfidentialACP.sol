@@ -284,7 +284,13 @@ contract ConfidentialACP is
         paymentToken.confidentialTransfer(job.provider, payout);
 
         // Transfer encrypted fee to treasury (nobody sees the fee)
+        // NOTE: Treasury receives cUSDC (encrypted). Treasury can unwrap via
+        // ConfidentialUSDC.unwrap() to convert back to plaintext USDC.
         paymentToken.confidentialTransfer(treasury, fee);
+
+        if (job.hook != address(0)) {
+            try IACPHook(job.hook).afterAction{gas: 100_000}(jobId, this.complete.selector, abi.encode(msg.sender, reason)) {} catch { emit HookFailed(jobId, this.complete.selector); }
+        }
 
         emit JobCompleted(jobId, msg.sender, reason);
         emit PaymentReleased(jobId, job.provider);
@@ -311,6 +317,10 @@ contract ConfidentialACP is
             FHE.allowTransient(job.budget, address(paymentToken));
             paymentToken.confidentialTransfer(job.client, job.budget);
             emit Refunded(jobId, job.client);
+        }
+
+        if (job.hook != address(0)) {
+            try IACPHook(job.hook).afterAction{gas: 100_000}(jobId, this.reject.selector, abi.encode(msg.sender, reason)) {} catch { emit HookFailed(jobId, this.reject.selector); }
         }
 
         emit JobRejected(jobId, msg.sender, reason);
@@ -366,6 +376,13 @@ contract ConfidentialACP is
 
     /// @notice Get the total number of jobs created.
     function totalJobs() external view returns (uint256) {
+        return _nextJobId - 1;
+    }
+
+    /// @notice Transparency helper: returns totalJobs for fee auditing.
+    ///         Each completed job generates a 1% fee in cUSDC sent directly to treasury.
+    ///         Treasury can unwrap cUSDC via ConfidentialUSDC.unwrap() to get plaintext USDC.
+    function getAccumulatedJobs() external view returns (uint256) {
         return _nextJobId - 1;
     }
 

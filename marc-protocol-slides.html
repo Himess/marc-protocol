@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MARC Protocol — Zama Builder Track</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #06060a;
+  --surface: #0d0d14;
+  --card: #12121c;
+  --border: #1a1a2e;
+  --purple: #8b5cf6;
+  --purple-dim: #6d28d9;
+  --green: #10b981;
+  --green-dim: #059669;
+  --cyan: #06b6d4;
+  --amber: #f59e0b;
+  --red: #ef4444;
+  --text: #e2e8f0;
+  --text-dim: #64748b;
+  --text-muted: #475569;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+.slide {
+  display: none;
+  width: 100vw;
+  height: 100vh;
+  padding: 60px 80px;
+  position: relative;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.slide.active { display: flex; }
+
+/* Noise overlay */
+.slide::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+.slide > * { position: relative; z-index: 1; }
+
+/* Grid lines background */
+.grid-bg {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(139,92,246,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139,92,246,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  z-index: 0;
+}
+
+/* Glow orbs */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.15;
+  z-index: 0;
+}
+
+.orb-purple { background: var(--purple); width: 500px; height: 500px; }
+.orb-green { background: var(--green); width: 400px; height: 400px; }
+.orb-cyan { background: var(--cyan); width: 300px; height: 300px; }
+
+/* Typography */
+h1 {
+  font-family: 'Space Mono', monospace;
+  font-size: 72px;
+  font-weight: 700;
+  letter-spacing: -2px;
+  line-height: 1.05;
+}
+
+h2 {
+  font-family: 'Space Mono', monospace;
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1.2;
+}
+
+h3 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+p {
+  font-size: 20px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  font-weight: 300;
+}
+
+.mono {
+  font-family: 'Space Mono', monospace;
+  font-size: 14px;
+  color: var(--green);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, var(--purple) 0%, var(--cyan) 50%, var(--green) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Tags / pills */
+.tag-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+
+.tag {
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  font-size: 13px;
+  font-family: 'Space Mono', monospace;
+  color: var(--text-dim);
+  background: rgba(139,92,246,0.06);
+}
+
+.tag-purple { border-color: var(--purple-dim); color: var(--purple); }
+.tag-green { border-color: var(--green-dim); color: var(--green); }
+.tag-cyan { border-color: var(--cyan); color: var(--cyan); }
+
+/* Stat row */
+.stat-row {
+  display: flex;
+  gap: 48px;
+  margin: 40px 0;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-number {
+  font-family: 'Space Mono', monospace;
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.stat-label {
+  font-size: 14px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* Flow diagram */
+.flow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 30px 0;
+}
+
+.flow-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-width: 130px;
+}
+
+.flow-step-icon { font-size: 28px; }
+.flow-step-text { font-size: 13px; font-weight: 500; text-align: center; }
+
+.flow-arrow {
+  font-size: 24px;
+  color: var(--purple);
+  padding: 0 8px;
+  font-family: 'Space Mono', monospace;
+}
+
+/* Cards grid */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin: 30px 0;
+}
+
+.card {
+  padding: 28px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  transition: border-color 0.3s;
+}
+
+.card:hover { border-color: var(--purple-dim); }
+
+.card-icon { font-size: 32px; margin-bottom: 12px; }
+.card-title { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+.card-desc { font-size: 15px; color: var(--text-dim); line-height: 1.5; }
+
+/* Table */
+.table-container {
+  margin: 24px 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+}
+
+th {
+  background: var(--card);
+  padding: 14px 20px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(26,26,46,0.5);
+  color: var(--text-dim);
+}
+
+tr:last-child td { border-bottom: none; }
+
+.highlight { color: var(--green); font-weight: 600; }
+.purple-text { color: var(--purple); font-weight: 600; }
+.amber-text { color: var(--amber); font-weight: 600; }
+
+/* Slide counter */
+.slide-counter {
+  position: fixed;
+  bottom: 30px;
+  right: 40px;
+  font-family: 'Space Mono', monospace;
+  font-size: 14px;
+  color: var(--text-muted);
+  z-index: 100;
+}
+
+/* Progress bar */
+.progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--purple), var(--cyan));
+  transition: width 0.3s ease;
+  z-index: 100;
+}
+
+/* Logo */
+.logo-bar {
+  position: fixed;
+  top: 30px;
+  left: 40px;
+  font-family: 'Space Mono', monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-muted);
+  z-index: 100;
+  letter-spacing: 3px;
+}
+
+/* Comparison layout */
+.comparison {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 30px;
+  align-items: start;
+  margin: 30px 0;
+}
+
+.comp-col {
+  padding: 28px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.comp-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: var(--text-muted);
+  padding-top: 40px;
+}
+
+/* Roadmap */
+.roadmap {
+  display: flex;
+  gap: 24px;
+  margin: 30px 0;
+}
+
+.roadmap-item {
+  flex: 1;
+  padding: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  position: relative;
+}
+
+.roadmap-phase {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--purple);
+  margin-bottom: 8px;
+}
+
+.roadmap-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.roadmap-list {
+  list-style: none;
+  padding: 0;
+}
+
+.roadmap-list li {
+  font-size: 14px;
+  color: var(--text-dim);
+  padding: 4px 0;
+  padding-left: 16px;
+  position: relative;
+}
+
+.roadmap-list li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: var(--green);
+}
+
+/* Two col layout */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: start;
+}
+
+/* Revenue highlight */
+.revenue-box {
+  background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(16,185,129,0.1));
+  border: 1px solid var(--purple-dim);
+  border-radius: 16px;
+  padding: 28px;
+  margin: 20px 0;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.slide.active > * {
+  animation: fadeInUp 0.6s ease forwards;
+}
+
+.slide.active > *:nth-child(2) { animation-delay: 0.1s; }
+.slide.active > *:nth-child(3) { animation-delay: 0.2s; }
+.slide.active > *:nth-child(4) { animation-delay: 0.3s; }
+.slide.active > *:nth-child(5) { animation-delay: 0.4s; }
+.slide.active > *:nth-child(6) { animation-delay: 0.5s; }
+
+/* Responsive */
+@media (max-width: 1200px) {
+  h1 { font-size: 56px; }
+  .slide { padding: 40px 50px; }
+  .cards-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+<div class="logo-bar">MARC</div>
+<div class="slide-counter" id="counter"></div>
+
+<!-- ============================================ -->
+<!-- SLIDE 1: TITLE -->
+<!-- ============================================ -->
+<div class="slide active" id="slide-1">
+  <div class="grid-bg"></div>
+  <div class="orb orb-purple" style="top:-200px;right:-100px;"></div>
+  <div class="orb orb-green" style="bottom:-200px;left:-100px;"></div>
+  
+  <div class="mono" style="margin-bottom:16px;">// ZAMA BUILDER TRACK — MARCH 2026</div>
+  
+  <h1>
+    <span class="gradient-text">MARC</span><br>
+    Protocol
+  </h1>
+  
+  <p style="font-size:26px;margin-top:20px;color:var(--text);font-weight:400;">
+    The confidentiality layer for agent payments.
+  </p>
+  
+  <p style="margin-top:12px;">
+    Modular Agent-Ready Confidential Protocol.<br>
+    AI agents pay for APIs with FHE-encrypted amounts. Nobody sees how much.
+  </p>
+  
+  <div class="tag-row" style="margin-top:32px;">
+    <span class="tag tag-purple">ERC-7984</span>
+    <span class="tag tag-green">x402</span>
+    <span class="tag tag-cyan">ERC-8004</span>
+    <span class="tag tag-purple">ERC-8183</span>
+    <span class="tag">Sepolia Live</span>
+  </div>
+  
+  <div class="stat-row" style="margin-top:40px;">
+    <div class="stat-item">
+      <span class="stat-number" style="color:var(--purple);">454</span>
+      <span class="stat-label">Tests Passing</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-number" style="color:var(--green);">4</span>
+      <span class="stat-label">ERC Standards</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-number" style="color:var(--cyan);">3</span>
+      <span class="stat-label">Agent Frameworks</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-number" style="color:var(--amber);">8</span>
+      <span class="stat-label">Real FHE Tests</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 2: PROBLEM -->
+<!-- ============================================ -->
+<div class="slide" id="slide-2">
+  <div class="grid-bg"></div>
+  <div class="orb orb-purple" style="top:50%;right:-200px;"></div>
+  
+  <div class="mono">// THE PROBLEM</div>
+  
+  <h2 style="margin-top:16px;">
+    Agent payments are<br>
+    <span style="color:var(--red);">completely transparent.</span>
+  </h2>
+  
+  <p style="margin-top:20px;font-size:22px;">
+    Every API payment an AI agent makes is visible on-chain.<br>
+    Competitors can see your spending, reverse-engineer your strategy.
+  </p>
+  
+  <div class="cards-grid" style="margin-top:40px;">
+    <div class="card">
+      <div class="card-icon">👁️</div>
+      <div class="card-title">Amount Leakage</div>
+      <div class="card-desc">Every transfer amount is public. Competitors see exactly how much you pay for data, compute, and APIs.</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🎯</div>
+      <div class="card-title">Strategy Exposure</div>
+      <div class="card-desc">If a trading agent pays $500/day for market data, competitors know its strategy budget and can outbid.</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">💰</div>
+      <div class="card-title">Price Discrimination</div>
+      <div class="card-desc">API providers can see your balance and charge premium rates to high-value agents.</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">⚡</div>
+      <div class="card-title">122M+ x402 Transactions</div>
+      <div class="card-desc">x402 is growing fast. All payments public. Privacy is the missing infrastructure layer.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 3: SOLUTION -->
+<!-- ============================================ -->
+<div class="slide" id="slide-3">
+  <div class="grid-bg"></div>
+  <div class="orb orb-green" style="top:-150px;left:50%;"></div>
+  <div class="orb orb-purple" style="bottom:-100px;right:20%;"></div>
+  
+  <div class="mono">// THE SOLUTION</div>
+  
+  <h2 style="margin-top:16px;">
+    <span class="gradient-text">Encrypted payments.</span><br>
+    Same x402 standard.
+  </h2>
+  
+  <p style="margin-top:16px;">
+    MARC wraps USDC into encrypted cUSDC using Zama's FHE.<br>
+    Agents pay normally via x402 — amounts stay encrypted on-chain forever.
+  </p>
+  
+  <div class="flow" style="margin-top:40px;">
+    <div class="flow-step">
+      <div class="flow-step-icon">🤖</div>
+      <div class="flow-step-text">Agent<br>requests API</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step" style="border-color:var(--amber);">
+      <div class="flow-step-icon">⚠️</div>
+      <div class="flow-step-text">HTTP 402<br>Payment Required</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step" style="border-color:var(--purple);">
+      <div class="flow-step-icon">🔒</div>
+      <div class="flow-step-text">FHE Encrypt<br>amount</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step" style="border-color:var(--green);">
+      <div class="flow-step-icon">💎</div>
+      <div class="flow-step-text">cUSDC<br>transfer</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step" style="border-color:var(--cyan);">
+      <div class="flow-step-icon">✅</div>
+      <div class="flow-step-text">API Access<br>granted</div>
+    </div>
+  </div>
+  
+  <div class="tag-row" style="margin-top:32px;">
+    <span class="tag tag-green">✓ Amounts encrypted</span>
+    <span class="tag tag-green">✓ Addresses visible (compliance-friendly)</span>
+    <span class="tag tag-green">✓ Standard x402 flow</span>
+    <span class="tag tag-green">✓ 1-2 sec encryption</span>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 4: ARCHITECTURE -->
+<!-- ============================================ -->
+<div class="slide" id="slide-4">
+  <div class="grid-bg"></div>
+  <div class="orb orb-cyan" style="bottom:-150px;left:30%;"></div>
+  
+  <div class="mono">// ARCHITECTURE</div>
+  
+  <h2 style="margin-top:16px;">Four ERC standards.<br><span class="gradient-text">One protocol.</span></h2>
+  
+  <div class="cards-grid" style="margin-top:30px;">
+    <div class="card" style="border-left:3px solid var(--purple);">
+      <div class="card-title" style="color:var(--purple);">ERC-7984 — Confidential Token</div>
+      <div class="card-desc">
+        ConfidentialUSDC: wrap USDC → encrypted cUSDC. Balances and transfers stay encrypted via Zama FHE. Fee: 0.1% on wrap/unwrap.
+      </div>
+    </div>
+    <div class="card" style="border-left:3px solid var(--green);">
+      <div class="card-title" style="color:var(--green);">x402 — Agent Payments</div>
+      <div class="card-desc">
+        HTTP 402 Payment Required standard. Agent auto-pays for APIs with encrypted cUSDC. SDK middleware: one line to add paywall.
+      </div>
+    </div>
+    <div class="card" style="border-left:3px solid var(--cyan);">
+      <div class="card-title" style="color:var(--cyan);">ERC-8004 — Agent Identity</div>
+      <div class="card-desc">
+        Trustless Agents standard. NFT-based identity, on-chain reputation, validation registry. Agents build trust through payments.
+      </div>
+    </div>
+    <div class="card" style="border-left:3px solid var(--amber);">
+      <div class="card-title" style="color:var(--amber);">ERC-8183 — Agent Commerce</div>
+      <div class="card-desc">
+        Agentic Commerce Protocol. Job escrow with confidential payments. 1% platform fee on completion. Unbypassable revenue.
+      </div>
+    </div>
+  </div>
+  
+  <p style="margin-top:20px;text-align:center;font-size:16px;">
+    <span class="purple-text">Nobody else</span> combines all four standards. This is a full-stack confidential agent commerce protocol.
+  </p>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 5: DEMO / TRACTION -->
+<!-- ============================================ -->
+<div class="slide" id="slide-5">
+  <div class="grid-bg"></div>
+  <div class="orb orb-green" style="top:-100px;right:-100px;"></div>
+  
+  <div class="mono">// LIVE ON SEPOLIA</div>
+  
+  <h2 style="margin-top:16px;">Not a concept.<br><span class="gradient-text">Deployed and tested.</span></h2>
+  
+  <div class="two-col" style="margin-top:30px;">
+    <div>
+      <div class="table-container">
+        <table>
+          <tr><th colspan="2">Sepolia Contracts (V4.3)</th></tr>
+          <tr><td>ConfidentialUSDC</td><td class="mono" style="font-size:12px;">0xE944...92D</td></tr>
+          <tr><td>X402PaymentVerifier</td><td class="mono" style="font-size:12px;">0x4503...f4</td></tr>
+          <tr><td>AgenticCommerce</td><td class="mono" style="font-size:12px;">Deployed</td></tr>
+          <tr><td>MockUSDC</td><td class="mono" style="font-size:12px;">0xc89e...9f</td></tr>
+        </table>
+      </div>
+      
+      <div class="table-container" style="margin-top:16px;">
+        <table>
+          <tr><th colspan="2">Real FHE Gas Costs</th></tr>
+          <tr><td>wrap()</td><td class="highlight">314,980 gas</td></tr>
+          <tr><td>confidentialTransfer()</td><td class="highlight">~433,000 gas</td></tr>
+          <tr><td>recordPayment()</td><td class="highlight">46,964 gas</td></tr>
+          <tr><td>recordBatchPayment()</td><td class="highlight">47,411 gas</td></tr>
+        </table>
+      </div>
+    </div>
+    
+    <div>
+      <div class="table-container">
+        <table>
+          <tr><th colspan="2">Test Coverage</th></tr>
+          <tr><td>Contract tests</td><td class="highlight">175</td></tr>
+          <tr><td>SDK tests</td><td class="highlight">148</td></tr>
+          <tr><td>Virtuals plugin</td><td class="highlight">37</td></tr>
+          <tr><td>OpenClaw skill</td><td class="highlight">31</td></tr>
+          <tr><td>Sepolia on-chain</td><td class="highlight">55+</td></tr>
+          <tr><td>Real FHE encryption</td><td class="purple-text">8</td></tr>
+          <tr><td style="font-weight:700;color:var(--text);">Total</td><td style="font-weight:700;color:var(--green);font-size:20px;">454+</td></tr>
+        </table>
+      </div>
+      
+      <div class="tag-row" style="margin-top:16px;">
+        <span class="tag tag-green">Virtuals GAME ✓</span>
+        <span class="tag tag-green">OpenClaw ✓</span>
+        <span class="tag tag-purple">ElizaOS ✓</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 6: REVENUE MODEL -->
+<!-- ============================================ -->
+<div class="slide" id="slide-6">
+  <div class="grid-bg"></div>
+  <div class="orb orb-purple" style="top:30%;left:-200px;"></div>
+  
+  <div class="mono">// REVENUE MODEL</div>
+  
+  <h2 style="margin-top:16px;">Three-tier fee stack.<br><span class="gradient-text">Protocol-level revenue.</span></h2>
+  
+  <div class="cards-grid" style="margin-top:30px;grid-template-columns:repeat(3, 1fr);">
+    <div class="card" style="border-top:3px solid var(--purple);">
+      <div class="card-title" style="font-size:16px;color:var(--text-muted);">LAYER 1</div>
+      <div class="card-title" style="color:var(--purple);">Token Fees</div>
+      <div class="card-desc">
+        0.1% on wrap/unwrap<br>
+        Min $0.01 USDC<br>
+        Transfer: FREE<br>
+        <span style="color:var(--text-muted);font-size:13px;">(ERC-7984 compliant)</span>
+      </div>
+    </div>
+    <div class="card" style="border-top:3px solid var(--green);">
+      <div class="card-title" style="font-size:16px;color:var(--text-muted);">LAYER 2</div>
+      <div class="card-title" style="color:var(--green);">Job Escrow</div>
+      <div class="card-desc">
+        <strong style="color:var(--green);">1% on job completion</strong><br>
+        Agent creates job → funds escrowed →<br>
+        work delivered → 99% provider, 1% protocol<br>
+        <span style="color:var(--text-muted);font-size:13px;">(ERC-8183, contract-enforced, unbypassable)</span>
+      </div>
+    </div>
+    <div class="card" style="border-top:3px solid var(--cyan);">
+      <div class="card-title" style="font-size:16px;color:var(--text-muted);">LAYER 3</div>
+      <div class="card-title" style="color:var(--cyan);">Facilitator SaaS</div>
+      <div class="card-desc">
+        Verification service<br>
+        Free: 1K/month<br>
+        Pro: $200/month<br>
+        <span style="color:var(--text-muted);font-size:13px;">(recurring revenue)</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="revenue-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-size:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;">2026 Base Scenario (5% x402 adoption)</div>
+        <div style="font-family:'Space Mono',monospace;font-size:40px;font-weight:700;color:var(--green);margin-top:8px;">$200K/yr</div>
+        <div style="font-size:14px;color:var(--text-dim);margin-top:4px;">2027 multi-chain: <span class="purple-text">$4.3M</span> | 2028+ mainstream: <span class="purple-text">$21M</span></div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:14px;color:var(--text-dim);">Wrap/unwrap: $90K</div>
+        <div style="font-size:14px;color:var(--text-dim);">Job escrow (1%): $60K</div>
+        <div style="font-size:14px;color:var(--text-dim);">Enterprise SDK: $50K</div>
+        <div style="font-size:13px;color:var(--cyan);margin-top:8px;">Every new chain = revenue multiplier</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 7: WHY ZAMA -->
+<!-- ============================================ -->
+<div class="slide" id="slide-7">
+  <div class="grid-bg"></div>
+  <div class="orb orb-cyan" style="top:-200px;left:50%;"></div>
+  
+  <div class="mono">// WHY ZAMA</div>
+  
+  <h2 style="margin-top:16px;">
+    Zama built the confidentiality layer<br>
+    for <span style="color:var(--purple);">blockchains</span>.<br>
+    We built it for <span class="gradient-text">agent payments</span>.
+  </h2>
+  
+  <div class="two-col" style="margin-top:40px;">
+    <div>
+      <h3 style="color:var(--green);margin-bottom:16px;">Why FHE, not ZK?</h3>
+      <div class="table-container">
+        <table>
+          <tr><th></th><th>FHE (MARC)</th><th>ZK (Tornado-style)</th></tr>
+          <tr><td>Encryption speed</td><td class="highlight">1-2 sec</td><td>30 sec</td></tr>
+          <tr><td>Compliance</td><td class="highlight">Addresses visible</td><td style="color:var(--red);">Fully anonymous</td></tr>
+          <tr><td>Complexity</td><td class="highlight">230 lines</td><td>Thousands</td></tr>
+          <tr><td>Computation</td><td class="highlight">On encrypted data</td><td>Proof only</td></tr>
+          <tr><td>Fee enforcement</td><td class="highlight">FHE.mul</td><td>Circuit-level</td></tr>
+        </table>
+      </div>
+    </div>
+    
+    <div>
+      <h3 style="color:var(--purple);margin-bottom:16px;">Zama ecosystem value</h3>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-desc">
+          <strong style="color:var(--text);">More MARC usage</strong><br>
+          → More FHE operations<br>
+          → More Zama coprocessor demand<br>
+          → More $ZAMA token utility<br>
+          → <span class="highlight">Flywheel for Zama ecosystem</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-desc">
+          <strong style="color:var(--text);">ERC-7984 native</strong><br>
+          → Uses OpenZeppelin Confidential Contracts<br>
+          → Zama's own standard, not a fork<br>
+          → Full API v0.10 compatibility<br>
+          → <span class="highlight">Zero deprecated APIs</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SLIDE 8: ROADMAP -->
+<!-- ============================================ -->
+<div class="slide" id="slide-8">
+  <div class="grid-bg"></div>
+  <div class="orb orb-purple" style="bottom:-200px;right:30%;"></div>
+  <div class="orb orb-green" style="top:-200px;left:20%;"></div>
+  
+  <div class="mono">// ROADMAP</div>
+  
+  <h2 style="margin-top:16px;">
+    Building the <span class="gradient-text">full stack</span><br>
+    for confidential agent commerce.
+  </h2>
+  
+  <div class="roadmap" style="margin-top:36px;">
+    <div class="roadmap-item" style="border-top:3px solid var(--green);">
+      <div class="roadmap-phase" style="color:var(--green);">Now — V4.3</div>
+      <div class="roadmap-title">Core Protocol</div>
+      <ul class="roadmap-list">
+        <li>ConfidentialUSDC (ERC-7984)</li>
+        <li>x402 payment verifier</li>
+        <li>Batch prepayment</li>
+        <li>ERC-8004 identity + reputation</li>
+        <li>ERC-8183 job escrow</li>
+        <li>Virtuals + OpenClaw + ElizaOS</li>
+        <li>601+ tests, 6 contracts on Sepolia</li>
+      </ul>
+    </div>
+    
+    <div class="roadmap-item" style="border-top:3px solid var(--purple);">
+      <div class="roadmap-phase">Next — V5.0</div>
+      <div class="roadmap-title">Production Ready</div>
+      <ul class="roadmap-list">
+        <li>External security audit</li>
+        <li>Multisig treasury (Gnosis Safe)</li>
+        <li>Zaiffer cUSDC migration</li>
+        <li>KMS emergency timelock</li>
+        <li>UUPS proxy upgrade pattern</li>
+        <li>The Graph event indexer</li>
+        <li>LangChain / CrewAI SDKs</li>
+      </ul>
+    </div>
+    
+    <div class="roadmap-item" style="border-top:3px solid var(--cyan);">
+      <div class="roadmap-phase" style="color:var(--cyan);">Future — V6.0+</div>
+      <div class="roadmap-title">Multi-Chain</div>
+      <ul class="roadmap-list">
+        <li><strong style="color:var(--cyan);">Base + Arbitrum + Polygon</strong></li>
+        <li>Every chain Zama fhEVM deploys to</li>
+        <li>ERC-8126 risk scoring</li>
+        <li>Multi-token (cWETH, cDAI)</li>
+        <li>Cross-chain agent payments</li>
+        <li>Facilitator decentralization</li>
+        <li>Formal verification</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:30px;padding:20px;background:linear-gradient(135deg, rgba(6,182,212,0.08), rgba(139,92,246,0.08));border:1px solid var(--border);border-radius:16px;">
+    <p style="font-size:18px;color:var(--text-dim);margin-bottom:8px;">Zama fhEVM is chain-agnostic. Wherever it deploys, MARC follows.</p>
+    <h2 style="font-size:32px;">
+      <span class="gradient-text">One protocol. Every chain. Full privacy.</span>
+    </h2>
+    <div class="tag-row" style="justify-content:center;margin-top:16px;">
+      <span class="tag" style="font-size:14px;">github.com/Himess/fhe-x402</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- NAVIGATION SCRIPT -->
+<!-- ============================================ -->
+<script>
+let current = 1;
+const total = document.querySelectorAll('.slide').length;
+
+function showSlide(n) {
+  if (n < 1 || n > total) return;
+  document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+  document.getElementById(`slide-${n}`).classList.add('active');
+  current = n;
+  document.getElementById('counter').textContent = `${current} / ${total}`;
+  document.getElementById('progress').style.width = `${(current / total) * 100}%`;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); showSlide(current + 1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); showSlide(current - 1); }
+  if (e.key === 'Home') { e.preventDefault(); showSlide(1); }
+  if (e.key === 'End') { e.preventDefault(); showSlide(total); }
+});
+
+// Touch support
+let touchStartX = 0;
+document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+document.addEventListener('touchend', (e) => {
+  const diff = touchStartX - e.changedTouches[0].clientX;
+  if (Math.abs(diff) > 50) { diff > 0 ? showSlide(current + 1) : showSlide(current - 1); }
+});
+
+showSlide(1);
+</script>
+
+</body>
+</html>
