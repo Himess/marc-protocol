@@ -241,6 +241,142 @@ describe("X402PaymentVerifier", function () {
   });
 
   // =========================================================================
+  // FUZZ-LIKE BOUNDARY TESTS
+  // =========================================================================
+
+  describe("Fuzz-like boundary tests", function () {
+    const UINT64_MAX = 18446744073709551615n;
+    const UINT32_MAX = 4294967295;
+
+    // ---- recordPayment with minPrice=0 reverts ----
+    it("recordPayment with minPrice=0 reverts (ZeroMinPrice)", async function () {
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      await expect(
+        verifier.connect(payer).recordPayment(server.address, nonce, 0n)
+      ).to.be.revertedWithCustomError(verifier, "ZeroMinPrice");
+    });
+
+    // ---- recordPayment with minPrice=1 (minimum valid) ----
+    it("recordPayment with minPrice=1 succeeds", async function () {
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      await expect(
+        verifier.connect(payer).recordPayment(server.address, nonce, 1n)
+      ).to.emit(verifier, "PaymentVerified")
+        .withArgs(payer.address, server.address, nonce, 1n);
+    });
+
+    // ---- recordPayment with minPrice=uint64_max ----
+    it("recordPayment with minPrice=uint64_max succeeds", async function () {
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      await expect(
+        verifier.connect(payer).recordPayment(server.address, nonce, UINT64_MAX)
+      ).to.emit(verifier, "PaymentVerified")
+        .withArgs(payer.address, server.address, nonce, UINT64_MAX);
+    });
+
+    // ---- recordBatchPayment with requestCount=1 ----
+    it("recordBatchPayment with requestCount=1 succeeds", async function () {
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      await expect(
+        verifier.connect(payer).recordBatchPayment(server.address, nonce, 1, 1000000n)
+      ).to.emit(verifier, "BatchPaymentRecorded")
+        .withArgs(payer.address, server.address, nonce, 1, 1000000n);
+    });
+
+    // ---- recordBatchPayment with requestCount=uint32_max, low price (no overflow) ----
+    it("recordBatchPayment with requestCount=uint32_max and pricePerRequest=1 succeeds (no overflow)", async function () {
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      // 4294967295 * 1 = 4294967295 < uint64_max
+      await expect(
+        verifier.connect(payer).recordBatchPayment(server.address, nonce, UINT32_MAX, 1n)
+      ).to.emit(verifier, "BatchPaymentRecorded")
+        .withArgs(payer.address, server.address, nonce, UINT32_MAX, 1n);
+    });
+
+    // ---- recordBatchPayment with requestCount=uint32_max, high price (overflow) ----
+    it("recordBatchPayment with requestCount=uint32_max and high price reverts (BatchOverflow)", async function () {
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      // 4294967295 * 4294967298 = 18446744078004518910 > uint64_max (18446744073709551615)
+      await expect(
+        verifier.connect(payer).recordBatchPayment(server.address, nonce, UINT32_MAX, 4294967298n)
+      ).to.be.revertedWithCustomError(verifier, "BatchOverflow");
+    });
+
+    // ---- recordBatchPayment with pricePerRequest=uint64_max, requestCount=1 (no overflow) ----
+    it("recordBatchPayment with pricePerRequest=uint64_max and requestCount=1 succeeds", async function () {
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      // 1 * uint64_max = uint64_max (fits)
+      await expect(
+        verifier.connect(payer).recordBatchPayment(server.address, nonce, 1, UINT64_MAX)
+      ).to.emit(verifier, "BatchPaymentRecorded")
+        .withArgs(payer.address, server.address, nonce, 1, UINT64_MAX);
+    });
+
+    // ---- recordBatchPayment with pricePerRequest=uint64_max, requestCount=2 (overflow) ----
+    it("recordBatchPayment with pricePerRequest=uint64_max and requestCount=2 reverts (BatchOverflow)", async function () {
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      await expect(
+        verifier.connect(payer).recordBatchPayment(server.address, nonce, 2, UINT64_MAX)
+      ).to.be.revertedWithCustomError(verifier, "BatchOverflow");
+    });
+
+    // ---- recordPayment with server=zero address ----
+    it("recordPayment with server=ZeroAddress reverts", async function () {
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      await expect(
+        verifier.connect(payer).recordPayment(ethers.ZeroAddress, nonce, 1000000n)
+      ).to.be.revertedWithCustomError(verifier, "ZeroAddress");
+    });
+
+    // ---- recordBatchPayment with server=zero address ----
+    it("recordBatchPayment with server=ZeroAddress reverts", async function () {
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      await expect(
+        verifier.connect(payer).recordBatchPayment(ethers.ZeroAddress, nonce, 10, 100000n)
+      ).to.be.revertedWithCustomError(verifier, "ZeroAddress");
+    });
+
+    // ---- Nonce exhaustion: many sequential payments ----
+    it("10 sequential recordPayment calls with unique nonces all succeed", async function () {
+      for (let i = 0; i < 10; i++) {
+        const nonce = ethers.hexlify(ethers.randomBytes(32));
+        await expect(
+          verifier.connect(payer).recordPayment(server.address, nonce, BigInt(i + 1))
+        ).to.not.be.reverted;
+      }
+    });
+
+    // ---- Cross-function nonce collision: batch first, then single ----
+    it("nonce used in recordBatchPayment blocks recordPayment with same nonce", async function () {
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      await verifier.connect(payer).recordBatchPayment(server.address, nonce, 5, 100000n);
+      await expect(
+        verifier.connect(payer).recordPayment(server.address, nonce, 1000000n)
+      ).to.be.revertedWithCustomError(verifier, "NonceAlreadyUsed");
+    });
+
+    // ---- recordBatchPayment boundary: product exactly equals uint64_max ----
+    it("recordBatchPayment with product exactly uint64_max succeeds", async function () {
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      // We need requestCount * pricePerRequest == uint64_max (18446744073709551615)
+      // 3 * 6148914691236517205 = 18446744073709551615
+      await expect(
+        verifier.connect(payer).recordBatchPayment(server.address, nonce, 3, 6148914691236517205n)
+      ).to.emit(verifier, "BatchPaymentRecorded")
+        .withArgs(payer.address, server.address, nonce, 3, 6148914691236517205n);
+    });
+
+    // ---- recordBatchPayment boundary: product = uint64_max + 1 reverts ----
+    it("recordBatchPayment with product = uint64_max + 1 reverts (BatchOverflow)", async function () {
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
+      // 2 * 9223372036854775808 = 18446744073709551616 = uint64_max + 1
+      await expect(
+        verifier.connect(payer).recordBatchPayment(server.address, nonce, 2, 9223372036854775808n)
+      ).to.be.revertedWithCustomError(verifier, "BatchOverflow");
+    });
+  });
+
+  // =========================================================================
   // V4.3 — recordBatchPayment
   // =========================================================================
 

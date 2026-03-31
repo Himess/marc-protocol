@@ -659,6 +659,177 @@ describe("ConfidentialUSDC", function () {
   });
 
   // =========================================================================
+  // FUZZ-LIKE BOUNDARY TESTS
+  // =========================================================================
+
+  describe("Fuzz-like boundary tests", function () {
+    const UINT64_MAX = 2n ** 64n - 1n; // 18446744073709551615
+
+    // Helper: compute expected fee for a given amount
+    function expectedFee(amount: bigint): bigint {
+      const percentageFee = (amount * FEE_BPS) / BPS;
+      return percentageFee > MIN_FEE ? percentageFee : MIN_FEE;
+    }
+
+    // Helper: mint + approve + wrap, return the actual fee
+    async function wrapAndCheckFee(amount: bigint) {
+      await usdc.mint(alice.address, amount);
+      await usdc.connect(alice).approve(await token.getAddress(), amount);
+      const feesBefore = await token.accumulatedFees();
+      await token.connect(alice).wrap(alice.address, amount);
+      const feesAfter = await token.accumulatedFees();
+      // accumulatedFees is in USDC terms (fee * rate, rate=1), so direct comparison
+      return feesAfter - feesBefore;
+    }
+
+    // ---- Boundary amount: 1 (below dust, should revert) ----
+    it("wrap with amount=1 reverts (DustAmount)", async function () {
+      await usdc.mint(alice.address, 1n);
+      await usdc.connect(alice).approve(await token.getAddress(), 1n);
+      await expect(
+        token.connect(alice).wrap(alice.address, 1n)
+      ).to.be.revertedWithCustomError(token, "DustAmount");
+    });
+
+    // ---- Boundary amount: 10_000 (equals MIN_FEE, net=0, should revert) ----
+    it("wrap with amount=10000 reverts (DustAmount, net would be 0)", async function () {
+      await usdc.mint(alice.address, 10_000n);
+      await usdc.connect(alice).approve(await token.getAddress(), 10_000n);
+      await expect(
+        token.connect(alice).wrap(alice.address, 10_000n)
+      ).to.be.revertedWithCustomError(token, "DustAmount");
+    });
+
+    // ---- Boundary amount: 9999 (just below min fee boundary, should revert) ----
+    it("wrap with amount=9999 reverts (DustAmount)", async function () {
+      await usdc.mint(alice.address, 9999n);
+      await usdc.connect(alice).approve(await token.getAddress(), 9999n);
+      await expect(
+        token.connect(alice).wrap(alice.address, 9999n)
+      ).to.be.revertedWithCustomError(token, "DustAmount");
+    });
+
+    // ---- Boundary amount: 10_001 (just above dust threshold) ----
+    it("wrap with amount=10001 succeeds, fee=MIN_FEE", async function () {
+      const amount = 10_001n;
+      const fee = await wrapAndCheckFee(amount);
+      expect(fee).to.equal(expectedFee(amount));
+      expect(fee).to.equal(MIN_FEE); // percentage = 10001*10/10000 = 10 < 10000
+    });
+
+    // ---- Amount: 100_000 (0.1 USDC) ----
+    it("wrap with amount=100000 (0.1 USDC), fee=MIN_FEE", async function () {
+      const amount = 100_000n;
+      const fee = await wrapAndCheckFee(amount);
+      expect(fee).to.equal(expectedFee(amount));
+      // 100000 * 10 / 10000 = 100, < 10000 => MIN_FEE
+      expect(fee).to.equal(MIN_FEE);
+    });
+
+    // ---- Amount: 1_000_000 (1 USDC) ----
+    it("wrap with amount=1000000 (1 USDC), fee=MIN_FEE", async function () {
+      const amount = 1_000_000n;
+      const fee = await wrapAndCheckFee(amount);
+      expect(fee).to.equal(expectedFee(amount));
+      // 1000000 * 10 / 10000 = 1000, < 10000 => MIN_FEE
+      expect(fee).to.equal(MIN_FEE);
+    });
+
+    // ---- Amount: 10_000_000 (10 USDC, breakeven) ----
+    it("wrap with amount=10000000 (10 USDC), fee equals MIN_FEE exactly (breakeven)", async function () {
+      const amount = 10_000_000n;
+      const fee = await wrapAndCheckFee(amount);
+      expect(fee).to.equal(expectedFee(amount));
+      // 10000000 * 10 / 10000 = 10000 = MIN_FEE
+      expect(fee).to.equal(MIN_FEE);
+    });
+
+    // ---- Amount: 100_000_000 (100 USDC) ----
+    it("wrap with amount=100000000 (100 USDC), percentage fee > MIN_FEE", async function () {
+      const amount = 100_000_000n;
+      const fee = await wrapAndCheckFee(amount);
+      const expected = expectedFee(amount);
+      expect(fee).to.equal(expected);
+      // 100000000 * 10 / 10000 = 100000 > 10000
+      expect(fee).to.equal(100_000n);
+    });
+
+    // ---- Amount: 1_000_000_000 (1000 USDC) ----
+    it("wrap with amount=1000000000 (1000 USDC), fee=1000000", async function () {
+      const amount = 1_000_000_000n;
+      const fee = await wrapAndCheckFee(amount);
+      expect(fee).to.equal(expectedFee(amount));
+      // 1000000000 * 10 / 10000 = 1000000
+      expect(fee).to.equal(1_000_000n);
+    });
+
+    // ---- Amount: 10_000_000_000 (10,000 USDC) ----
+    it("wrap with amount=10000000000 (10000 USDC), fee=10000000", async function () {
+      const amount = 10_000_000_000n;
+      const fee = await wrapAndCheckFee(amount);
+      expect(fee).to.equal(expectedFee(amount));
+      // 10000000000 * 10 / 10000 = 10000000
+      expect(fee).to.equal(10_000_000n);
+    });
+
+    // ---- Amount: uint64 max (18446744073709551615) ----
+    it("wrap with amount=uint64_max succeeds, fee is correct", async function () {
+      const amount = UINT64_MAX;
+      await usdc.mint(alice.address, amount);
+      await usdc.connect(alice).approve(await token.getAddress(), amount);
+      await token.connect(alice).wrap(alice.address, amount);
+
+      const expected = expectedFee(amount);
+      // UINT64_MAX * 10 / 10000 = 18446744073709541 (integer division)
+      expect(await token.accumulatedFees()).to.equal(expected);
+    });
+
+    // ---- Amount: uint64 max + 1 (overflow, should revert) ----
+    it("wrap with amount=uint64_max+1 reverts (SafeCastOverflow)", async function () {
+      const overflowAmount = UINT64_MAX + 1n;
+      await usdc.mint(alice.address, overflowAmount);
+      await usdc.connect(alice).approve(await token.getAddress(), overflowAmount);
+      await expect(
+        token.connect(alice).wrap(alice.address, overflowAmount)
+      ).to.be.revertedWithCustomError(token, "SafeCastOverflowedUintDowncast");
+    });
+
+    // ---- Fee invariant: net amount is always > 0 for valid wraps ----
+    it("net amount is always > 0 for amounts above dust threshold", async function () {
+      const testAmounts = [10_001n, 20_000n, 100_000n, 1_000_000n, 10_000_000n, 100_000_000n, UINT64_MAX];
+
+      for (const amount of testAmounts) {
+        const fee = expectedFee(amount);
+        const net = amount - fee;
+        expect(net).to.be.gt(0n, `net amount should be > 0 for amount=${amount}`);
+      }
+    });
+
+    // ---- Fee monotonicity: fee never decreases as amount increases ----
+    it("fee is monotonically non-decreasing as amount increases", async function () {
+      const testAmounts = [10_001n, 20_000n, 100_000n, 1_000_000n, 10_000_000n, 100_000_000n, 1_000_000_000n, UINT64_MAX];
+
+      let prevFee = 0n;
+      for (const amount of testAmounts) {
+        const fee = expectedFee(amount);
+        expect(fee).to.be.gte(prevFee, `fee should be >= previous fee for amount=${amount}`);
+        prevFee = fee;
+      }
+    });
+
+    // ---- Wrap to self and to different recipient boundary ----
+    it("wrap uint64_max to different recipient", async function () {
+      const amount = UINT64_MAX;
+      await usdc.mint(alice.address, amount);
+      await usdc.connect(alice).approve(await token.getAddress(), amount);
+      // Wrap to bob, not alice
+      await expect(
+        token.connect(alice).wrap(bob.address, amount)
+      ).to.not.be.reverted;
+    });
+  });
+
+  // =========================================================================
   // ERC7984ERC20Wrapper view functions
   // =========================================================================
 

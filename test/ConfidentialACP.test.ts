@@ -497,6 +497,129 @@ describe("ConfidentialACP — FHE-Encrypted Job Escrow", function () {
   });
 
   // =========================================================================
+  // FUZZ-LIKE BOUNDARY TESTS
+  // =========================================================================
+
+  describe("Fuzz-like boundary tests", function () {
+    const UINT64_MAX = 18446744073709551615n;
+
+    // ---- Fund with amount=1 (minimum valid) ----
+    it("fund with amount=1 (minimum) succeeds", async function () {
+      await acp.connect(client).createJob(
+        provider.address, evaluator.address, expiry(), "Min fund test", ethers.ZeroAddress
+      );
+      const tx = await acp.connect(client).fund(1, 1);
+      await expect(tx).to.emit(acp, "JobFunded").withArgs(1n, client.address);
+      const job = await acp.getJob(1);
+      expect(job.status).to.equal(1n); // Funded
+    });
+
+    // ---- Fund with large amount (near max capacity, accounting for beforeEach wrap) ----
+    it("fund with large amount succeeds", async function () {
+      // beforeEach already wraps 1000 USDC, so we use a large but non-overflowing amount
+      // Use 500 USDC (500_000_000) which is well within available cUSDC balance
+      const largeAmount = 500_000_000;
+      await acp.connect(client).createJob(
+        provider.address, evaluator.address, expiry(), "Large fund test", ethers.ZeroAddress
+      );
+      const tx = await acp.connect(client).fund(1, largeAmount);
+      await expect(tx).to.emit(acp, "JobFunded");
+      const job = await acp.getJob(1);
+      expect(job.status).to.equal(1n);
+    });
+
+    // ---- Create job with very long description (1000 chars) ----
+    it("createJob with 1000-char description succeeds", async function () {
+      const longDesc = "A".repeat(1000);
+      const tx = await acp.connect(client).createJob(
+        provider.address, evaluator.address, expiry(), longDesc, ethers.ZeroAddress
+      );
+      await expect(tx).to.emit(acp, "JobCreated");
+      const job = await acp.getJob(1);
+      expect(job.description).to.equal(longDesc);
+    });
+
+    // ---- Create job with empty description ----
+    it("createJob with empty description succeeds", async function () {
+      const tx = await acp.connect(client).createJob(
+        provider.address, evaluator.address, expiry(), "", ethers.ZeroAddress
+      );
+      await expect(tx).to.emit(acp, "JobCreated");
+      const job = await acp.getJob(1);
+      expect(job.description).to.equal("");
+    });
+
+    // ---- Multiple sequential jobs: create 5, fund all, complete all ----
+    it("5 sequential jobs: create, fund, submit, complete all", async function () {
+      const deliverable = ethers.keccak256(ethers.toUtf8Bytes("delivery"));
+      const reason = ethers.keccak256(ethers.toUtf8Bytes("approved"));
+
+      for (let i = 1; i <= 5; i++) {
+        await acp.connect(client).createAndFund(
+          provider.address, evaluator.address, expiry(), `Job ${i}`, ethers.ZeroAddress, USDC_100
+        );
+      }
+
+      expect(await acp.totalJobs()).to.equal(5n);
+
+      // Submit all 5
+      for (let i = 1; i <= 5; i++) {
+        await acp.connect(provider).submit(i, deliverable);
+        const job = await acp.getJob(i);
+        expect(job.status).to.equal(2n); // Submitted
+      }
+
+      // Complete all 5
+      for (let i = 1; i <= 5; i++) {
+        await acp.connect(evaluator).complete(i, reason);
+        const job = await acp.getJob(i);
+        expect(job.status).to.equal(3n); // Completed
+      }
+    });
+
+    // ---- Fund with amount=0 reverts ----
+    it("fund with amount=0 reverts (ZeroBudget)", async function () {
+      await acp.connect(client).createJob(
+        provider.address, evaluator.address, expiry(), "Zero budget", ethers.ZeroAddress
+      );
+      await expect(
+        acp.connect(client).fund(1, 0)
+      ).to.be.revertedWithCustomError(acp, "ZeroBudget");
+    });
+
+    // ---- Create job with extremely long description (5000 chars) ----
+    it("createJob with 5000-char description succeeds", async function () {
+      const veryLongDesc = "B".repeat(5000);
+      const tx = await acp.connect(client).createJob(
+        provider.address, evaluator.address, expiry(), veryLongDesc, ethers.ZeroAddress
+      );
+      await expect(tx).to.emit(acp, "JobCreated");
+    });
+
+    // ---- Sequential create+reject, then create+complete (state reuse) ----
+    it("create and reject, then create and complete (no state leakage)", async function () {
+      const reason = ethers.keccak256(ethers.toUtf8Bytes("rejected"));
+      const approveReason = ethers.keccak256(ethers.toUtf8Bytes("approved"));
+      const deliverable = ethers.keccak256(ethers.toUtf8Bytes("work"));
+
+      // Job 1: create, fund, reject
+      await acp.connect(client).createAndFund(
+        provider.address, evaluator.address, expiry(), "Job to reject", ethers.ZeroAddress, USDC_100
+      );
+      await acp.connect(client).reject(1, reason);
+      expect((await acp.getJob(1)).status).to.equal(4n); // Rejected
+
+      // Job 2: create, fund, submit, complete
+      await acp.connect(client).createAndFund(
+        provider.address, evaluator.address, expiry(), "Job to complete", ethers.ZeroAddress, USDC_100
+      );
+      await acp.connect(provider).submit(2, deliverable);
+      await acp.connect(evaluator).complete(2, approveReason);
+      expect((await acp.getJob(2)).status).to.equal(3n); // Completed
+    });
+  });
+
+  // =========================================================================
   // ADMIN
   // =========================================================================
 
