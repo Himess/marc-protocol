@@ -29,10 +29,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Himess/fhe-x402.git",
+    "url": "git+https://github.com/marc-protocol/marc.git",
     "directory": "packages/mcp-server"
   },
-  "homepage": "https://github.com/Himess/fhe-x402#readme",
+  "homepage": "https://github.com/marc-protocol/marc#readme",
   "author": "Himess",
   "scripts": {
     "build": "tsup",

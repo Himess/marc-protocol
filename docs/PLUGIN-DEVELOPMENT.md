@@ -184,4 +184,4 @@ Always import from SDK. Never hardcode addresses.
 
 ## Questions?
 
-Open an issue on GitHub: https://github.com/Himess/fhe-x402/issues
+Open an issue on GitHub: https://github.com/marc-protocol/marc/issues

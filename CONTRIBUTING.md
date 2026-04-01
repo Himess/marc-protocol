@@ -4,7 +4,7 @@
 
 ```bash
 # Clone and install
-git clone https://github.com/Himess/fhe-x402.git
+git clone https://github.com/marc-protocol/marc.git
 cd fhe-x402
 npm install
 

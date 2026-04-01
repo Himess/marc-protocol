@@ -31,12 +31,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Himess/fhe-x402.git",
+    "url": "git+https://github.com/marc-protocol/marc.git",
     "directory": "sdk"
   },
-  "homepage": "https://github.com/Himess/fhe-x402#readme",
+  "homepage": "https://github.com/marc-protocol/marc#readme",
   "bugs": {
-    "url": "https://github.com/Himess/fhe-x402/issues"
+    "url": "https://github.com/marc-protocol/marc/issues"
   },
   "author": "Himess",
   "scripts": {
