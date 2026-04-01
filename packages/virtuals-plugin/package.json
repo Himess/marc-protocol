@@ -1,6 +1,6 @@
 {
   "name": "@fhe-x402/virtuals-plugin",
-  "version": "4.3.0",
+  "version": "1.0.0",
   "description": "Virtuals Protocol GAME plugin for FHE x402 encrypted payments",
   "type": "module",
   "main": "./dist/index.js",

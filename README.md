@@ -1,17 +1,17 @@
 # MARC Protocol. The Privacy Layer for Agent Payments
 
-![Tests](https://img.shields.io/badge/tests-800+-brightgreen)
+![Tests](https://img.shields.io/badge/tests-900+-brightgreen)
 ![License](https://img.shields.io/badge/license-BUSL--1.1-blue)
 ![Chain](https://img.shields.io/badge/chain-Ethereum%20Sepolia-purple)
 ![SDK](https://img.shields.io/badge/npm-marc--protocol--sdk-red)
 
-**[Live Demo](https://marcprotocol.com)** · **[Video Pitch](https://www.youtube.com/watch?v=utipPnFrzOY)** · **[Lightpaper](docs/LIGHTPAPER.md)** · **[Audit Report](docs/AUDIT-FINDINGS-V4.3.md)**
+**[Live Demo](https://marcprotocol.com)** · **[Video Pitch](https://www.youtube.com/watch?v=utipPnFrzOY)** · **[Lightpaper](docs/LIGHTPAPER.md)** · **[Audit Report](docs/archived/AUDIT-FINDINGS-V4.3.md)**
 
 ## Overview
 
 MARC Protocol is the privacy layer for AI agent payments. Built on **Zama's fhEVM**, it uses Fully Homomorphic Encryption to hide payment amounts and balances on-chain. MARC works under **any agent payment framework**: x402, MCP, MPP, A2A (Agent-to-Agent), AgentKit, Virtuals GAME, and OpenClaw. Wherever agents pay, MARC encrypts.
 
-**Scheme:** `fhe-confidential-v1` | **Chain:** Ethereum Sepolia (11155111) | **Tests:** 800+ (305 contract + 328 Sepolia on-chain + 173 SDK + 37 Virtuals + 31 OpenClaw)
+**Scheme:** `fhe-confidential-v1` | **Chain:** Ethereum Sepolia (11155111) | **Tests:** 900+ (305 contract + 328 Sepolia on-chain + 173 SDK + 37 Virtuals + 31 OpenClaw)
 
 ### Why MARC?
 
@@ -170,7 +170,7 @@ Inherits: `ZamaEthereumConfig`, `ERC7984`, `ERC7984ERC20Wrapper`, `Ownable2Step`
 |-------|------|
 | `PaymentVerified(payer, server, nonce, minPrice)` | Payment nonce recorded |
 
-## Deployed Addresses (Sepolia V4.3)
+## Deployed Addresses (Sepolia)
 
 | Contract | Address |
 |----------|---------|
@@ -481,9 +481,8 @@ marc-protocol/
 │   ├── REVENUE-PROJECTIONS.md        # Revenue model + market analysis
 │   ├── PROTOCOL.md                   # Technical specification (V4.0)
 │   ├── SECURITY.md                   # Security policy + threat model
-│   ├── AUDIT-FINDINGS-V4.3.md       # V4.3 deep audit report
 │   ├── ROADMAP.md                    # Version milestones
-│   └── TODO.md                       # Development tracker
+│   └── archived/                     # Historical audit reports
 └── deploy/
     └── 01_deploy.ts
 ```
@@ -562,42 +561,28 @@ See [docs/SECURITY.md](docs/SECURITY.md) for the full threat model and audit his
 
 ## Roadmap
 
-### Completed
-- **V4.0.** Token-centric rewrite (ERC-7984 + ERC7984ERC20Wrapper, no pool)
-- **V4.1.** Critical fixes (minPrice, assert to revert, unwrap cleanup, OpenClaw addresses)
-- **V4.2.** Single-TX payment (payAndRecord, confidentialTransferAndCall + callback)
-- **V4.3.** Batch prepayment (recordBatchPayment, batch credit system)
-- **V4.2.1.** Security hardening (access control, SafeCast, Pausable ACP, hook safety)
+### v1.0.0 (Current)
+- 7 contracts: ConfidentialUSDC, X402PaymentVerifier, AgenticCommerceProtocol, AgentIdentityRegistry, AgentReputationRegistry, MARCTimelock, MockUSDC
+- 6 framework plugins: x402, MCP, MPP, AgentKit, Virtuals GAME, OpenClaw
+- SDK with fheFetch, fhePaywall, facilitator, ERC-8004/8183 helpers
+- 900+ tests, deployed on Ethereum Sepolia
+- The Graph subgraph, GitHub Actions CI/CD
 
-### Completed (V4.3)
-- **V4.3.** ERC-8183 Agentic Commerce (job escrow, 1% completion fee)
-- **V4.3.** ERC-8004 full integration (identity + reputation + feedback, deployed + verified)
-- **V4.3.** Deep audit: 414 tests, all CRITICAL/HIGH/MEDIUM findings fixed
-- **V4.3.** Frontend: 5-tab UI (Dashboard, Wallet, Pay, Jobs, Agents)
-- **V4.3.** Redis stores, silent failure guard, batch prepayment
-
-### Planned, V6.0 (Production Readiness)
-- UUPS proxy pattern for contract upgradeability
-- Multisig treasury (Gnosis Safe 2/3 or 3/5)
-- KMS emergency withdrawal timelock (30-day governance delay)
-- The Graph subgraph for event indexing
-- Gas benchmark report (wrap/transfer/unwrap/escrow costs)
-- Formal verification (Certora or Halmos state machine proofs)
+### v1.1 (Next)
+- Ethereum mainnet deployment
 - Professional third-party audit
+- UUPS proxy pattern for contract upgradeability
+- Multisig treasury (Gnosis Safe)
+- Gas benchmark report
 
-### Planned, V7.0 (Multi-Chain, Multi-VM Expansion)
-- **Base deployment** -- #1 chain for x402 volume (Coinbase ecosystem)
-- **Arbitrum deployment** -- Largest L2 by TVL
-- **Ethereum Mainnet** -- Highest security, largest DeFi TVL
-- **Solana (SVM) deployment** -- Largest non-EVM agent ecosystem (Zama roadmap)
+### v1.2
+- Multi-chain deployment: Base (#1 x402 volume), Arbitrum (largest L2 TVL)
 - Multi-token factory (cWETH, cDAI confidential wrappers)
-- MCP, MPP, A2A native adapters
-- ERC-8183 reference implementation ownership
-- ERC-8126 risk scoring (agent reputation risk framework)
-- Zama partnership (Zaiffer cUSDC migration)
-- LangChain / CrewAI / AutoGPT agent framework integrations
-- Facilitator network (decentralized verification service)
-- **Goal: MARC Protocol live on every chain and VM where Zama deploys**
+- Facilitator network (decentralized verification)
+
+### v2.0
+- Multi-VM expansion: Solana (SVM) via Zama's cross-VM roadmap
+- Wherever Zama deploys FHE, MARC follows
 
 ## License
 

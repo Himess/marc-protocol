@@ -33,7 +33,7 @@ export interface ChainConfig {
   contracts: ChainContracts;
 }
 
-// Sepolia testnet (deployed V4.3)
+// Sepolia testnet (deployed v1.0.0)
 const SEPOLIA: ChainConfig = {
   chainId: 11155111,
   name: "Ethereum Sepolia",

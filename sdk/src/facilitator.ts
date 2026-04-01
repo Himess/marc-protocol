@@ -143,7 +143,7 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
   app.get("/info", (_req: import("express").Request, res: import("express").Response) => {
     res.json({
       name: config.name || "FHE x402 Facilitator",
-      version: config.version || "4.3.0",
+      version: config.version || "1.0.0",
       schemes: ["fhe-confidential-v1"],
       networks: [network],
       tokens: ["USDC"],

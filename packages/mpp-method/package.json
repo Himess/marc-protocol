@@ -1,6 +1,6 @@
 {
   "name": "@marc-protocol/mpp-method",
-  "version": "4.3.0",
+  "version": "1.0.0",
   "description": "MARC Protocol FHE confidential payment method for Stripe MPP",
   "type": "module",
   "main": "dist/index.js",

@@ -1,7 +1,7 @@
 {
   "name": "fhe-x402",
   "description": "FHE-powered x402 payment protocol — encrypted amounts, public participants",
-  "version": "4.3.0",
+  "version": "1.0.0",
   "private": true,
   "engines": {
     "node": ">=20"

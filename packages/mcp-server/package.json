@@ -1,6 +1,6 @@
 {
   "name": "@marc-protocol/mcp-server",
-  "version": "4.3.0",
+  "version": "1.0.0",
   "description": "MARC Protocol MCP Server — FHE confidential payments for AI agents",
   "type": "module",
   "bin": {

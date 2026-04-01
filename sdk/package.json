@@ -1,6 +1,6 @@
 {
   "name": "marc-protocol-sdk",
-  "version": "4.3.0",
+  "version": "1.0.0",
   "description": "MARC Protocol SDK — FHE-powered confidential payments for AI agents (ERC-7984, ERC-8004, ERC-8183, x402)",
   "license": "BUSL-1.1",
   "type": "module",

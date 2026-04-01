@@ -1,6 +1,6 @@
 {
   "name": "@marc-protocol/x402-scheme",
-  "version": "4.3.0",
+  "version": "1.0.0",
   "description": "MARC Protocol FHE confidential payment scheme for x402",
   "type": "module",
   "main": "dist/index.js",

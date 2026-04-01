@@ -1,6 +1,6 @@
 {
   "name": "@marc-protocol/agentkit",
-  "version": "4.3.0",
+  "version": "1.0.0",
   "description": "MARC Protocol FHE confidential payment actions for Coinbase AgentKit",
   "type": "module",
   "main": "dist/index.js",
