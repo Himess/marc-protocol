@@ -279,9 +279,7 @@ describe("MarcUnwrapTool", () => {
 
   it("throws without FhevmInstance", async () => {
     const noFheTool = new MarcUnwrapTool(createMockSigner());
-    await expect(noFheTool.call(JSON.stringify({ amount: "1000000" }))).rejects.toThrow(
-      "FhevmInstance is required"
-    );
+    await expect(noFheTool.call(JSON.stringify({ amount: "1000000" }))).rejects.toThrow("FhevmInstance is required");
   });
 
   it("throws on zero amount", async () => {
@@ -340,9 +338,9 @@ describe("MarcTransferTool", () => {
 
   it("throws without FhevmInstance", async () => {
     const noFheTool = new MarcTransferTool(createMockSigner());
-    await expect(
-      noFheTool.call(JSON.stringify({ to: VALID_ADDRESS_B, amount: "500000" }))
-    ).rejects.toThrow("FhevmInstance is required");
+    await expect(noFheTool.call(JSON.stringify({ to: VALID_ADDRESS_B, amount: "500000" }))).rejects.toThrow(
+      "FhevmInstance is required"
+    );
   });
 
   it("throws on zero address recipient", async () => {

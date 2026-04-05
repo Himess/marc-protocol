@@ -351,10 +351,7 @@ describe("handleUnwrap", () => {
   });
 
   it("initiates unwrap successfully", async () => {
-    const result = await handleUnwrap(
-      { amount: "1000000", tokenAddress: VALID_TOKEN },
-      createContext()
-    );
+    const result = await handleUnwrap({ amount: "1000000", tokenAddress: VALID_TOKEN }, createContext());
 
     expect(result.success).toBe(true);
     expect(result.data.action).toBe("unwrap_requested");
@@ -429,10 +426,7 @@ describe("handleTransfer", () => {
   });
 
   it("returns error when fhevmInstance is missing", async () => {
-    const result = await handleTransfer(
-      { to: VALID_ADDRESS_B, amount: "500000" },
-      createContext({ noFhevm: true })
-    );
+    const result = await handleTransfer({ to: VALID_ADDRESS_B, amount: "500000" }, createContext({ noFhevm: true }));
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("fhevmInstance is required");
@@ -450,10 +444,7 @@ describe("handleTransfer", () => {
 
   it("returns error on amount exceeding uint64 max", async () => {
     const overflowAmount = (BigInt("0xFFFFFFFFFFFFFFFF") + 1n).toString();
-    const result = await handleTransfer(
-      { to: VALID_ADDRESS_B, amount: overflowAmount },
-      createContext()
-    );
+    const result = await handleTransfer({ to: VALID_ADDRESS_B, amount: overflowAmount }, createContext());
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("exceeds uint64 max");
@@ -465,10 +456,7 @@ describe("handleTransfer", () => {
       wait: vi.fn().mockResolvedValue({ hash: "0xfail", status: 0 }),
     });
 
-    const result = await handleTransfer(
-      { to: VALID_ADDRESS_B, amount: "500000" },
-      createContext()
-    );
+    const result = await handleTransfer({ to: VALID_ADDRESS_B, amount: "500000" }, createContext());
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("Confidential transfer reverted");
@@ -515,10 +503,7 @@ describe("handleBalance", () => {
   });
 
   it("queries custom address", async () => {
-    const result = await handleBalance(
-      { address: VALID_ADDRESS_B, tokenAddress: VALID_TOKEN },
-      createContext()
-    );
+    const result = await handleBalance({ address: VALID_ADDRESS_B, tokenAddress: VALID_TOKEN }, createContext());
 
     expect(result.success).toBe(true);
     expect(result.data.address).toBe(VALID_ADDRESS_B);
@@ -530,10 +515,7 @@ describe("handleBalance", () => {
   });
 
   it("returns error on invalid custom address", async () => {
-    const result = await handleBalance(
-      { address: "0xinvalid", tokenAddress: VALID_TOKEN },
-      createContext()
-    );
+    const result = await handleBalance({ address: "0xinvalid", tokenAddress: VALID_TOKEN }, createContext());
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("Invalid address");
@@ -578,10 +560,7 @@ describe("handlePay", () => {
   });
 
   it("returns error when fhevmInstance is missing", async () => {
-    const result = await handlePay(
-      { server: VALID_ADDRESS_B, amount: "1000000" },
-      createContext({ noFhevm: true })
-    );
+    const result = await handlePay({ server: VALID_ADDRESS_B, amount: "1000000" }, createContext({ noFhevm: true }));
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("fhevmInstance is required");
@@ -598,10 +577,7 @@ describe("handlePay", () => {
   });
 
   it("returns error on zero amount", async () => {
-    const result = await handlePay(
-      { server: VALID_ADDRESS_B, amount: "0" },
-      createContext()
-    );
+    const result = await handlePay({ server: VALID_ADDRESS_B, amount: "0" }, createContext());
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("must be > 0");
@@ -613,10 +589,7 @@ describe("handlePay", () => {
       wait: vi.fn().mockResolvedValue({ hash: "0xfail", status: 0 }),
     });
 
-    const result = await handlePay(
-      { server: VALID_ADDRESS_B, amount: "1000000" },
-      createContext()
-    );
+    const result = await handlePay({ server: VALID_ADDRESS_B, amount: "1000000" }, createContext());
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("Payment transfer reverted");
@@ -628,10 +601,7 @@ describe("handlePay", () => {
       wait: vi.fn().mockResolvedValue({ hash: "0xvfail", status: 0 }),
     });
 
-    const result = await handlePay(
-      { server: VALID_ADDRESS_B, amount: "1000000" },
-      createContext()
-    );
+    const result = await handlePay({ server: VALID_ADDRESS_B, amount: "1000000" }, createContext());
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("Verifier recordPayment failed");
@@ -639,10 +609,7 @@ describe("handlePay", () => {
   });
 
   it("uses default Sepolia addresses when not provided", async () => {
-    const result = await handlePay(
-      { server: VALID_ADDRESS_B, amount: "1000000" },
-      createContext()
-    );
+    const result = await handlePay({ server: VALID_ADDRESS_B, amount: "1000000" }, createContext());
 
     expect(result.success).toBe(true);
     expect(result.data.action).toBe("x402_payment");
@@ -669,11 +636,7 @@ describe("executeAction integration", () => {
   });
 
   it("executes marc_wrap via skill.executeAction", async () => {
-    const result = await skill.executeAction(
-      "marc_wrap",
-      { amount: "2000000" },
-      createContext()
-    );
+    const result = await skill.executeAction("marc_wrap", { amount: "2000000" }, createContext());
 
     expect(result.success).toBe(true);
     expect(result.data.action).toBe("wrap");
@@ -681,11 +644,7 @@ describe("executeAction integration", () => {
   });
 
   it("executes marc_balance via skill.executeAction", async () => {
-    const result = await skill.executeAction(
-      "marc_balance",
-      { tokenAddress: VALID_TOKEN },
-      createContext()
-    );
+    const result = await skill.executeAction("marc_balance", { tokenAddress: VALID_TOKEN }, createContext());
 
     expect(result.success).toBe(true);
     expect(result.data.action).toBe("balance");

@@ -11,9 +11,7 @@ const mockConfidentialTransfer = vi.fn();
 const mockUnwrap = vi.fn();
 const mockConfidentialBalanceOf = vi.fn();
 const mockRecordPayment = vi.fn();
-const mockGetAddress = vi
-  .fn()
-  .mockResolvedValue("0x1234567890abcdef1234567890abcdef12345678");
+const mockGetAddress = vi.fn().mockResolvedValue("0x1234567890abcdef1234567890abcdef12345678");
 
 vi.mock("ethers", () => ({
   Contract: vi.fn().mockImplementation((_addr: string, abi: any) => {
@@ -89,9 +87,7 @@ function createMockFhevmInstance(): FhevmInstance {
   };
 }
 
-function createContext(
-  opts: { fhevm?: boolean; addresses?: any } = {}
-): ElizaContext {
+function createContext(opts: { fhevm?: boolean; addresses?: any } = {}): ElizaContext {
   return {
     signer: createMockSigner(),
     fhevmInstance: opts.fhevm !== false ? createMockFhevmInstance() : undefined,
@@ -121,13 +117,7 @@ describe("marcPlugin structure", () => {
 
   it("has correct action names", () => {
     const names = marcPlugin.actions.map((a) => a.name);
-    expect(names).toEqual([
-      "MARC_WRAP",
-      "MARC_UNWRAP",
-      "MARC_TRANSFER",
-      "MARC_BALANCE",
-      "MARC_PAY",
-    ]);
+    expect(names).toEqual(["MARC_WRAP", "MARC_UNWRAP", "MARC_TRANSFER", "MARC_BALANCE", "MARC_PAY"]);
   });
 
   it("all actions have descriptions", () => {
@@ -317,24 +307,16 @@ describe("MARC_UNWRAP", () => {
 describe("MARC_TRANSFER", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockConfidentialTransfer.mockResolvedValue(
-      txReceipt("0xtransfer789", 300)
-    );
+    mockConfidentialTransfer.mockResolvedValue(txReceipt("0xtransfer789", 300));
   });
 
   it("validates correct params", () => {
-    expect(
-      marcTransferAction.validate({ to: VALID_ADDRESS_B, amount: "10" })
-    ).toBe(true);
+    expect(marcTransferAction.validate({ to: VALID_ADDRESS_B, amount: "10" })).toBe(true);
   });
 
   it("rejects invalid address", () => {
-    expect(
-      marcTransferAction.validate({ to: "not-an-address", amount: "10" })
-    ).toBe(false);
-    expect(marcTransferAction.validate({ to: "0x123", amount: "10" })).toBe(
-      false
-    );
+    expect(marcTransferAction.validate({ to: "not-an-address", amount: "10" })).toBe(false);
+    expect(marcTransferAction.validate({ to: "0x123", amount: "10" })).toBe(false);
   });
 
   it("rejects missing amount", () => {
@@ -342,20 +324,13 @@ describe("MARC_TRANSFER", () => {
   });
 
   it("rejects invalid amount", () => {
-    expect(
-      marcTransferAction.validate({ to: VALID_ADDRESS_B, amount: "0" })
-    ).toBe(false);
-    expect(
-      marcTransferAction.validate({ to: VALID_ADDRESS_B, amount: "-5" })
-    ).toBe(false);
+    expect(marcTransferAction.validate({ to: VALID_ADDRESS_B, amount: "0" })).toBe(false);
+    expect(marcTransferAction.validate({ to: VALID_ADDRESS_B, amount: "-5" })).toBe(false);
   });
 
   it("transfers cUSDC successfully", async () => {
     const ctx = createContext();
-    const result = await marcTransferAction.handler(
-      { to: VALID_ADDRESS_B, amount: "25" },
-      ctx
-    );
+    const result = await marcTransferAction.handler({ to: VALID_ADDRESS_B, amount: "25" }, ctx);
 
     expect(result.success).toBe(true);
     expect(result.message).toContain("Sent 25 cUSDC");
@@ -371,24 +346,16 @@ describe("MARC_TRANSFER", () => {
 
   it("fails without fhevmInstance", async () => {
     const ctx = createContext({ fhevm: false });
-    const result = await marcTransferAction.handler(
-      { to: VALID_ADDRESS_B, amount: "10" },
-      ctx
-    );
+    const result = await marcTransferAction.handler({ to: VALID_ADDRESS_B, amount: "10" }, ctx);
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("fhevmInstance is required");
   });
 
   it("handles transfer error gracefully", async () => {
-    mockConfidentialTransfer.mockRejectedValue(
-      new Error("Execution reverted")
-    );
+    mockConfidentialTransfer.mockRejectedValue(new Error("Execution reverted"));
     const ctx = createContext();
-    const result = await marcTransferAction.handler(
-      { to: VALID_ADDRESS_B, amount: "10" },
-      ctx
-    );
+    const result = await marcTransferAction.handler({ to: VALID_ADDRESS_B, amount: "10" }, ctx);
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("Execution reverted");
@@ -400,10 +367,7 @@ describe("MARC_TRANSFER", () => {
       add64: vi.fn(),
       encrypt: vi.fn().mockResolvedValue({ handles: [], inputProof: "" }),
     });
-    const result = await marcTransferAction.handler(
-      { to: VALID_ADDRESS_B, amount: "10" },
-      ctx
-    );
+    const result = await marcTransferAction.handler({ to: VALID_ADDRESS_B, amount: "10" }, ctx);
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("no handles");
@@ -486,10 +450,7 @@ describe("MARC_BALANCE", () => {
 
   it("checks balance for specific address", async () => {
     const ctx = createContext();
-    const result = await marcBalanceAction.handler(
-      { address: VALID_ADDRESS_B },
-      ctx
-    );
+    const result = await marcBalanceAction.handler({ address: VALID_ADDRESS_B }, ctx);
 
     expect(result.success).toBe(true);
     expect(result.data?.walletAddress).toBe(VALID_ADDRESS_B);
@@ -503,9 +464,7 @@ describe("MARC_BALANCE", () => {
 describe("MARC_PAY", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockConfidentialTransfer.mockResolvedValue(
-      txReceipt("0xpaytransfer", 400)
-    );
+    mockConfidentialTransfer.mockResolvedValue(txReceipt("0xpaytransfer", 400));
     mockRecordPayment.mockResolvedValue(txReceipt("0xpayverifier", 401));
 
     // Mock global fetch for x402 flow
@@ -542,9 +501,7 @@ describe("MARC_PAY", () => {
   });
 
   it("validates correct params", () => {
-    expect(marcPayAction.validate({ url: "https://api.example.com" })).toBe(
-      true
-    );
+    expect(marcPayAction.validate({ url: "https://api.example.com" })).toBe(true);
     expect(marcPayAction.validate({ url: "http://localhost:3000" })).toBe(true);
   });
 
@@ -557,10 +514,7 @@ describe("MARC_PAY", () => {
 
   it("completes full x402 payment flow", async () => {
     const ctx = createContext();
-    const result = await marcPayAction.handler(
-      { url: "https://api.example.com/premium" },
-      ctx
-    );
+    const result = await marcPayAction.handler({ url: "https://api.example.com/premium" }, ctx);
 
     expect(result.success).toBe(true);
     expect(result.message).toContain("1.00 USDC");
@@ -577,10 +531,7 @@ describe("MARC_PAY", () => {
 
   it("fails without fhevmInstance", async () => {
     const ctx = createContext({ fhevm: false });
-    const result = await marcPayAction.handler(
-      { url: "https://api.example.com" },
-      ctx
-    );
+    const result = await marcPayAction.handler({ url: "https://api.example.com" }, ctx);
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("fhevmInstance is required");
@@ -596,10 +547,7 @@ describe("MARC_PAY", () => {
     );
 
     const ctx = createContext();
-    const result = await marcPayAction.handler(
-      { url: "https://free-resource.com" },
-      ctx
-    );
+    const result = await marcPayAction.handler({ url: "https://free-resource.com" }, ctx);
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("did not return 402");
@@ -619,10 +567,7 @@ describe("MARC_PAY", () => {
     );
 
     const ctx = createContext();
-    const result = await marcPayAction.handler(
-      { url: "https://api.example.com" },
-      ctx
-    );
+    const result = await marcPayAction.handler({ url: "https://api.example.com" }, ctx);
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("No matching FHE payment requirement");
@@ -638,25 +583,17 @@ describe("MARC_PAY", () => {
     );
 
     const ctx = createContext();
-    const result = await marcPayAction.handler(
-      { url: "https://api.example.com" },
-      ctx
-    );
+    const result = await marcPayAction.handler({ url: "https://api.example.com" }, ctx);
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("Invalid 402 response");
   });
 
   it("handles transfer error in pay flow", async () => {
-    mockConfidentialTransfer.mockRejectedValue(
-      new Error("Transfer reverted")
-    );
+    mockConfidentialTransfer.mockRejectedValue(new Error("Transfer reverted"));
 
     const ctx = createContext();
-    const result = await marcPayAction.handler(
-      { url: "https://api.example.com" },
-      ctx
-    );
+    const result = await marcPayAction.handler({ url: "https://api.example.com" }, ctx);
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("Transfer reverted");
@@ -666,10 +603,7 @@ describe("MARC_PAY", () => {
     mockRecordPayment.mockRejectedValue(new Error("Nonce already used"));
 
     const ctx = createContext();
-    const result = await marcPayAction.handler(
-      { url: "https://api.example.com" },
-      ctx
-    );
+    const result = await marcPayAction.handler({ url: "https://api.example.com" }, ctx);
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("Nonce already used");
@@ -695,10 +629,7 @@ describe("MARC_PAY", () => {
     );
 
     const ctx = createContext();
-    const result = await marcPayAction.handler(
-      { url: "https://api.example.com", maxPayment: "1000000" },
-      ctx
-    );
+    const result = await marcPayAction.handler({ url: "https://api.example.com", maxPayment: "1000000" }, ctx);
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("No matching FHE payment requirement");
@@ -714,10 +645,7 @@ describe("MARC_PAY", () => {
     );
 
     const ctx = createContext();
-    const result = await marcPayAction.handler(
-      { url: "https://api.example.com" },
-      ctx
-    );
+    const result = await marcPayAction.handler({ url: "https://api.example.com" }, ctx);
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("Failed to parse 402 response");

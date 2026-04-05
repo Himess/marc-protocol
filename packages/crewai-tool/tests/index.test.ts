@@ -332,15 +332,13 @@ describe("MarcTransferCrewTool", () => {
 
   it("throws without FhevmInstance", async () => {
     const noFheTool = new MarcTransferCrewTool(createMockSigner());
-    await expect(noFheTool.run({ to: VALID_ADDRESS_B, amount: "500000" })).rejects.toThrow(
-      "FhevmInstance is required"
-    );
+    await expect(noFheTool.run({ to: VALID_ADDRESS_B, amount: "500000" })).rejects.toThrow("FhevmInstance is required");
   });
 
   it("throws on zero address recipient", async () => {
-    await expect(
-      tool.run({ to: "0x0000000000000000000000000000000000000000", amount: "1000000" })
-    ).rejects.toThrow("Invalid to");
+    await expect(tool.run({ to: "0x0000000000000000000000000000000000000000", amount: "1000000" })).rejects.toThrow(
+      "Invalid to"
+    );
   });
 
   it("throws on invalid address format", async () => {
@@ -454,9 +452,7 @@ describe("MarcPayCrewTool", () => {
 
   it("throws without FhevmInstance", async () => {
     const noFheTool = new MarcPayCrewTool(createMockSigner());
-    await expect(noFheTool.run({ url: "https://example.com/api" })).rejects.toThrow(
-      "FhevmInstance is required"
-    );
+    await expect(noFheTool.run({ url: "https://example.com/api" })).rejects.toThrow("FhevmInstance is required");
   });
 
   it("throws when URL is empty", async () => {
@@ -506,9 +502,7 @@ describe("MarcPayCrewTool", () => {
     globalThis.fetch = mockFetch as any;
 
     try {
-      await expect(tool.run({ url: "https://example.com/free" })).rejects.toThrow(
-        "Resource did not return 402"
-      );
+      await expect(tool.run({ url: "https://example.com/free" })).rejects.toThrow("Resource did not return 402");
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -552,9 +546,9 @@ describe("MarcPayCrewTool", () => {
     globalThis.fetch = mockFetch as any;
 
     try {
-      await expect(
-        tool.run({ url: "https://example.com/api", maxPayment: "1000000" })
-      ).rejects.toThrow("No matching payment requirement found");
+      await expect(tool.run({ url: "https://example.com/api", maxPayment: "1000000" })).rejects.toThrow(
+        "No matching payment requirement found"
+      );
     } finally {
       globalThis.fetch = originalFetch;
     }
