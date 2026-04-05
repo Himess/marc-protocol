@@ -30,10 +30,7 @@ export interface Signer {
 
 /** Minimal @zama-fhe/relayer-sdk FhevmInstance */
 export interface FhevmInstance {
-  createEncryptedInput: (
-    contractAddress: string,
-    userAddress: string
-  ) => FhevmEncryptedInput;
+  createEncryptedInput: (contractAddress: string, userAddress: string) => FhevmEncryptedInput;
 }
 
 export interface FhevmEncryptedInput {
@@ -49,10 +46,7 @@ export interface ElizaAction {
   name: string;
   description: string;
   validate: (params: Record<string, unknown>) => boolean;
-  handler: (
-    params: Record<string, unknown>,
-    context: ElizaContext
-  ) => Promise<ElizaResult>;
+  handler: (params: Record<string, unknown>, context: ElizaContext) => Promise<ElizaResult>;
   examples: string[][];
 }
 
@@ -153,11 +147,7 @@ function parseAmount(amountStr: string): bigint {
 }
 
 /** Dynamic import to avoid bundling ethers at module level */
-async function createContract(
-  address: string,
-  abi: readonly string[],
-  signer: Signer
-): Promise<any> {
+async function createContract(address: string, abi: readonly string[], signer: Signer): Promise<any> {
   const { Contract } = await import("ethers");
   return new Contract(address, abi as string[], signer as any);
 }
@@ -172,10 +162,7 @@ function canonicalMessage(data: Record<string, unknown>): string {
   const sorted = Object.keys(data)
     .filter((k) => k !== "signature")
     .sort()
-    .reduce(
-      (obj, key) => ({ ...obj, [key]: data[key] }),
-      {} as Record<string, unknown>
-    );
+    .reduce((obj, key) => ({ ...obj, [key]: data[key] }), {} as Record<string, unknown>);
   return JSON.stringify(sorted);
 }
 
@@ -195,35 +182,21 @@ export const marcWrapAction: ElizaAction = {
     return !isNaN(parsed) && parsed > 0;
   },
 
-  async handler(
-    params: Record<string, unknown>,
-    context: ElizaContext
-  ): Promise<ElizaResult> {
+  async handler(params: Record<string, unknown>, context: ElizaContext): Promise<ElizaResult> {
     try {
       const amountStr = String(params.amount);
       const rawAmount = parseAmount(amountStr);
       const addresses = getAddresses(context);
       const signerAddress = await context.signer.getAddress();
-      const to =
-        typeof params.to === "string" && isValidAddress(params.to)
-          ? params.to
-          : signerAddress;
+      const to = typeof params.to === "string" && isValidAddress(params.to) ? params.to : signerAddress;
 
       // Approve USDC spending
-      const usdc = await createContract(
-        addresses.usdcAddress,
-        USDC_ABI as unknown as string[],
-        context.signer
-      );
+      const usdc = await createContract(addresses.usdcAddress, USDC_ABI as unknown as string[], context.signer);
       const approveTx = await usdc.approve(addresses.tokenAddress, rawAmount);
       await approveTx.wait();
 
       // Wrap USDC -> cUSDC
-      const token = await createContract(
-        addresses.tokenAddress,
-        TOKEN_ABI as unknown as string[],
-        context.signer
-      );
+      const token = await createContract(addresses.tokenAddress, TOKEN_ABI as unknown as string[], context.signer);
       const tx = await token.wrap(to, rawAmount);
       const receipt = await tx.wait();
 
@@ -245,18 +218,9 @@ export const marcWrapAction: ElizaAction = {
   },
 
   examples: [
-    [
-      "user: wrap 100 USDC to cUSDC",
-      "assistant: I'll wrap 100 USDC into encrypted cUSDC for you.",
-    ],
-    [
-      "user: I need private tokens",
-      "assistant: Let me wrap your USDC into confidential cUSDC.",
-    ],
-    [
-      "user: convert 50 USDC to encrypted",
-      "assistant: Wrapping 50 USDC into cUSDC using FHE encryption.",
-    ],
+    ["user: wrap 100 USDC to cUSDC", "assistant: I'll wrap 100 USDC into encrypted cUSDC for you."],
+    ["user: I need private tokens", "assistant: Let me wrap your USDC into confidential cUSDC."],
+    ["user: convert 50 USDC to encrypted", "assistant: Wrapping 50 USDC into cUSDC using FHE encryption."],
   ],
 };
 
@@ -276,16 +240,12 @@ export const marcUnwrapAction: ElizaAction = {
     return !isNaN(parsed) && parsed > 0;
   },
 
-  async handler(
-    params: Record<string, unknown>,
-    context: ElizaContext
-  ): Promise<ElizaResult> {
+  async handler(params: Record<string, unknown>, context: ElizaContext): Promise<ElizaResult> {
     try {
       if (!context.fhevmInstance) {
         return {
           success: false,
-          message:
-            "fhevmInstance is required for unwrap — provide it in ElizaContext",
+          message: "fhevmInstance is required for unwrap — provide it in ElizaContext",
         };
       }
 
@@ -295,10 +255,7 @@ export const marcUnwrapAction: ElizaAction = {
       const signerAddress = await context.signer.getAddress();
 
       // Encrypt the unwrap amount
-      const encInput = context.fhevmInstance.createEncryptedInput(
-        addresses.tokenAddress,
-        signerAddress
-      );
+      const encInput = context.fhevmInstance.createEncryptedInput(addresses.tokenAddress, signerAddress);
       encInput.add64(rawAmount);
       const encrypted = await encInput.encrypt();
 
@@ -310,17 +267,8 @@ export const marcUnwrapAction: ElizaAction = {
       }
 
       // Call unwrap(from, to, encryptedAmount, inputProof)
-      const token = await createContract(
-        addresses.tokenAddress,
-        TOKEN_ABI as unknown as string[],
-        context.signer
-      );
-      const tx = await token.unwrap(
-        signerAddress,
-        signerAddress,
-        encrypted.handles[0],
-        encrypted.inputProof
-      );
+      const token = await createContract(addresses.tokenAddress, TOKEN_ABI as unknown as string[], context.signer);
+      const tx = await token.unwrap(signerAddress, signerAddress, encrypted.handles[0], encrypted.inputProof);
       const receipt = await tx.wait();
 
       return {
@@ -341,18 +289,9 @@ export const marcUnwrapAction: ElizaAction = {
   },
 
   examples: [
-    [
-      "user: unwrap 50 cUSDC back to USDC",
-      "assistant: I'll unwrap 50 cUSDC back to regular USDC for you.",
-    ],
-    [
-      "user: convert my encrypted tokens to USDC",
-      "assistant: Initiating cUSDC unwrap back to USDC.",
-    ],
-    [
-      "user: I want to cash out my private balance",
-      "assistant: Let me unwrap your cUSDC to get plain USDC back.",
-    ],
+    ["user: unwrap 50 cUSDC back to USDC", "assistant: I'll unwrap 50 cUSDC back to regular USDC for you."],
+    ["user: convert my encrypted tokens to USDC", "assistant: Initiating cUSDC unwrap back to USDC."],
+    ["user: I want to cash out my private balance", "assistant: Let me unwrap your cUSDC to get plain USDC back."],
   ],
 };
 
@@ -376,16 +315,12 @@ export const marcTransferAction: ElizaAction = {
     return !isNaN(parsed) && parsed > 0;
   },
 
-  async handler(
-    params: Record<string, unknown>,
-    context: ElizaContext
-  ): Promise<ElizaResult> {
+  async handler(params: Record<string, unknown>, context: ElizaContext): Promise<ElizaResult> {
     try {
       if (!context.fhevmInstance) {
         return {
           success: false,
-          message:
-            "fhevmInstance is required for confidential transfer — provide it in ElizaContext",
+          message: "fhevmInstance is required for confidential transfer — provide it in ElizaContext",
         };
       }
 
@@ -396,10 +331,7 @@ export const marcTransferAction: ElizaAction = {
       const signerAddress = await context.signer.getAddress();
 
       // Encrypt amount
-      const encInput = context.fhevmInstance.createEncryptedInput(
-        addresses.tokenAddress,
-        signerAddress
-      );
+      const encInput = context.fhevmInstance.createEncryptedInput(addresses.tokenAddress, signerAddress);
       encInput.add64(rawAmount);
       const encrypted = await encInput.encrypt();
 
@@ -411,16 +343,8 @@ export const marcTransferAction: ElizaAction = {
       }
 
       // Call confidentialTransfer(to, encryptedAmount, inputProof)
-      const token = await createContract(
-        addresses.tokenAddress,
-        TOKEN_ABI as unknown as string[],
-        context.signer
-      );
-      const tx = await token.confidentialTransfer(
-        to,
-        encrypted.handles[0],
-        encrypted.inputProof
-      );
+      const token = await createContract(addresses.tokenAddress, TOKEN_ABI as unknown as string[], context.signer);
+      const tx = await token.confidentialTransfer(to, encrypted.handles[0], encrypted.inputProof);
       const receipt = await tx.wait();
 
       return {
@@ -442,18 +366,9 @@ export const marcTransferAction: ElizaAction = {
   },
 
   examples: [
-    [
-      "user: send 10 cUSDC to 0xAbC123...",
-      "assistant: I'll send 10 encrypted cUSDC to that address.",
-    ],
-    [
-      "user: transfer 5 private USDC to my friend",
-      "assistant: Sending 5 cUSDC confidentially using FHE encryption.",
-    ],
-    [
-      "user: pay 0xDeF456... 25 cUSDC privately",
-      "assistant: Transferring 25 cUSDC using encrypted transfer.",
-    ],
+    ["user: send 10 cUSDC to 0xAbC123...", "assistant: I'll send 10 encrypted cUSDC to that address."],
+    ["user: transfer 5 private USDC to my friend", "assistant: Sending 5 cUSDC confidentially using FHE encryption."],
+    ["user: pay 0xDeF456... 25 cUSDC privately", "assistant: Transferring 25 cUSDC using encrypted transfer."],
   ],
 };
 
@@ -475,33 +390,20 @@ export const marcBalanceAction: ElizaAction = {
     return true;
   },
 
-  async handler(
-    params: Record<string, unknown>,
-    context: ElizaContext
-  ): Promise<ElizaResult> {
+  async handler(params: Record<string, unknown>, context: ElizaContext): Promise<ElizaResult> {
     try {
       const addresses = getAddresses(context);
       const signerAddress = await context.signer.getAddress();
       const address =
-        typeof params.address === "string" && isValidAddress(params.address)
-          ? params.address
-          : signerAddress;
+        typeof params.address === "string" && isValidAddress(params.address) ? params.address : signerAddress;
 
       // Check public USDC balance
-      const usdc = await createContract(
-        addresses.usdcAddress,
-        USDC_ABI as unknown as string[],
-        context.signer
-      );
+      const usdc = await createContract(addresses.usdcAddress, USDC_ABI as unknown as string[], context.signer);
       const publicBalance: bigint = await usdc.balanceOf(address);
       const balanceUSDC = (Number(publicBalance) / 1_000_000).toFixed(2);
 
       // Check encrypted cUSDC balance handle
-      const token = await createContract(
-        addresses.tokenAddress,
-        TOKEN_ABI as unknown as string[],
-        context.signer
-      );
+      const token = await createContract(addresses.tokenAddress, TOKEN_ABI as unknown as string[], context.signer);
 
       let encryptedBalanceHandle: string = ZERO_HANDLE;
       try {
@@ -532,18 +434,9 @@ export const marcBalanceAction: ElizaAction = {
   },
 
   examples: [
-    [
-      "user: check my balance",
-      "assistant: Let me check your USDC and cUSDC balances.",
-    ],
-    [
-      "user: how much cUSDC do I have?",
-      "assistant: I'll check your encrypted cUSDC balance.",
-    ],
-    [
-      "user: what's my wallet balance?",
-      "assistant: Checking your public USDC and encrypted cUSDC balances.",
-    ],
+    ["user: check my balance", "assistant: Let me check your USDC and cUSDC balances."],
+    ["user: how much cUSDC do I have?", "assistant: I'll check your encrypted cUSDC balance."],
+    ["user: what's my wallet balance?", "assistant: Checking your public USDC and encrypted cUSDC balances."],
   ],
 };
 
@@ -562,16 +455,12 @@ export const marcPayAction: ElizaAction = {
     return true;
   },
 
-  async handler(
-    params: Record<string, unknown>,
-    context: ElizaContext
-  ): Promise<ElizaResult> {
+  async handler(params: Record<string, unknown>, context: ElizaContext): Promise<ElizaResult> {
     try {
       if (!context.fhevmInstance) {
         return {
           success: false,
-          message:
-            "fhevmInstance is required for x402 payment — provide it in ElizaContext",
+          message: "fhevmInstance is required for x402 payment — provide it in ElizaContext",
         };
       }
 
@@ -618,8 +507,7 @@ export const marcPayAction: ElizaAction = {
       // Select matching requirement
       const requirement = body.accepts.find((r: any) => {
         if (r.scheme !== FHE_SCHEME) return false;
-        if (maxPayment && maxPayment > 0n && BigInt(r.price) > maxPayment)
-          return false;
+        if (maxPayment && maxPayment > 0n && BigInt(r.price) > maxPayment) return false;
         return true;
       });
 
@@ -638,10 +526,7 @@ export const marcPayAction: ElizaAction = {
       const nonce = await randomNonce();
 
       // Step 3: Encrypt and transfer
-      const encInput = context.fhevmInstance.createEncryptedInput(
-        addresses.tokenAddress,
-        signerAddress
-      );
+      const encInput = context.fhevmInstance.createEncryptedInput(addresses.tokenAddress, signerAddress);
       encInput.add64(amount);
       const encrypted = await encInput.encrypt();
 
@@ -652,11 +537,7 @@ export const marcPayAction: ElizaAction = {
         };
       }
 
-      const token = await createContract(
-        addresses.tokenAddress,
-        TOKEN_ABI as unknown as string[],
-        context.signer
-      );
+      const token = await createContract(addresses.tokenAddress, TOKEN_ABI as unknown as string[], context.signer);
       const transferTx = await token.confidentialTransfer(
         requirement.recipientAddress,
         encrypted.handles[0],
@@ -670,11 +551,7 @@ export const marcPayAction: ElizaAction = {
         VERIFIER_ABI as unknown as string[],
         context.signer
       );
-      const verifierTx = await verifier.recordPayment(
-        requirement.recipientAddress,
-        nonce,
-        amount
-      );
+      const verifierTx = await verifier.recordPayment(requirement.recipientAddress, nonce, amount);
       const verifierReceipt = await verifierTx.wait();
 
       // Step 5: Build Payment header and retry
@@ -686,13 +563,9 @@ export const marcPayAction: ElizaAction = {
         from: signerAddress,
         chainId: 11155111,
       };
-      const signature = await context.signer.signMessage(
-        canonicalMessage(payloadData)
-      );
+      const signature = await context.signer.signMessage(canonicalMessage(payloadData));
       const payload = { ...payloadData, signature };
-      const paymentHeader = Buffer.from(JSON.stringify(payload)).toString(
-        "base64"
-      );
+      const paymentHeader = Buffer.from(JSON.stringify(payload)).toString("base64");
 
       let resourceResponse: { status: number; statusText: string } | undefined;
       try {
@@ -731,10 +604,7 @@ export const marcPayAction: ElizaAction = {
       "user: pay for access to https://api.example.com/premium",
       "assistant: I'll handle the x402 FHE payment to access that resource.",
     ],
-    [
-      "user: access this paid API endpoint",
-      "assistant: Let me make an encrypted payment to unlock the resource.",
-    ],
+    ["user: access this paid API endpoint", "assistant: Let me make an encrypted payment to unlock the resource."],
     [
       "user: use cUSDC to pay for https://data.example.com/report",
       "assistant: Making a confidential x402 payment to access the report.",
@@ -751,13 +621,7 @@ export const marcPlugin: ElizaPlugin = {
   name: "marc-protocol",
   description:
     "MARC Protocol FHE payment plugin for ElizaOS. Provides wrap, unwrap, transfer, balance check, and x402 payment actions using Fully Homomorphic Encryption on confidential USDC (cUSDC).",
-  actions: [
-    marcWrapAction,
-    marcUnwrapAction,
-    marcTransferAction,
-    marcBalanceAction,
-    marcPayAction,
-  ],
+  actions: [marcWrapAction, marcUnwrapAction, marcTransferAction, marcBalanceAction, marcPayAction],
 };
 
 export default marcPlugin;

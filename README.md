@@ -1,6 +1,6 @@
 # MARC Protocol. The Privacy Layer for Agent Payments
 
-![Tests](https://img.shields.io/badge/tests-900+-brightgreen)
+![Tests](https://img.shields.io/badge/tests-1100+-brightgreen)
 ![License](https://img.shields.io/badge/license-BUSL--1.1-blue)
 ![Chain](https://img.shields.io/badge/chain-Ethereum%20Sepolia-purple)
 ![SDK](https://img.shields.io/badge/npm-marc--protocol--sdk-red)
@@ -9,15 +9,15 @@
 
 ## Overview
 
-MARC Protocol is the privacy layer for AI agent payments. Built on **Zama's fhEVM**, it uses Fully Homomorphic Encryption to hide payment amounts and balances on-chain. MARC works under **any agent payment framework**: x402, MCP, MPP, A2A (Agent-to-Agent), AgentKit, Virtuals GAME, and OpenClaw. Wherever agents pay, MARC encrypts.
+MARC Protocol is the privacy layer for AI agent payments. Built on **Zama's fhEVM**, it uses Fully Homomorphic Encryption to hide payment amounts and balances on-chain. MARC works under **any agent payment framework**: x402, MCP, MPP, A2A, AgentKit, Virtuals GAME, OpenClaw, ElizaOS, LangChain, and CrewAI. Wherever agents pay, MARC encrypts.
 
-**Scheme:** `fhe-confidential-v1` | **Chain:** Ethereum Sepolia (11155111) | **Tests:** 900+ (305 contract + 328 Sepolia on-chain + 173 SDK + 37 Virtuals + 31 OpenClaw)
+**Scheme:** `fhe-confidential-v1` | **Chain:** Ethereum Sepolia (11155111) | **Tests:** 1100+ (305 contract + 328 Sepolia on-chain + 173 SDK + 210 new plugins + 107 MPP + existing plugins)
 
 ### Why MARC?
 
 AI agents are already transacting at scale. **$166M+ in x402 volume across chains** (Dune Analytics, Q1 2026), and new agent payment standards like MCP, MPP, and A2A are emerging rapidly. But every payment amount, every balance, every transaction outcome is **publicly visible on-chain**. Competitors can see your API spend, your pricing strategy, your customer base.
 
-MARC Protocol encrypts what matters: **amounts and balances are FHE-encrypted**, while participant addresses remain public for protocol compliance. It is not tied to any single payment standard. MARC sits underneath x402, MCP, MPP, A2A, AgentKit, Virtuals GAME, OpenClaw, and any future agent payment framework.
+MARC Protocol encrypts what matters: **amounts and balances are FHE-encrypted**, while participant addresses remain public for protocol compliance. It is not tied to any single payment standard. MARC sits underneath x402, MCP, MPP, A2A, AgentKit, Virtuals GAME, OpenClaw, ElizaOS, LangChain, CrewAI, and any future agent payment framework.
 
 ### Multi-Chain, Multi-VM Vision
 
@@ -563,7 +563,7 @@ See [docs/SECURITY.md](docs/SECURITY.md) for the full threat model and audit his
 
 ### v1.0.0 (Current)
 - 7 contracts: ConfidentialUSDC, X402PaymentVerifier, AgenticCommerceProtocol, AgentIdentityRegistry, AgentReputationRegistry, MARCTimelock, MockUSDC
-- 6 framework plugins: x402, MCP, MPP, AgentKit, Virtuals GAME, OpenClaw
+- 10 framework plugins: x402, MCP, MPP, AgentKit, Virtuals GAME, OpenClaw
 - SDK with fheFetch, fhePaywall, facilitator, ERC-8004/8183 helpers
 - 900+ tests, deployed on Ethereum Sepolia
 - The Graph subgraph, GitHub Actions CI/CD
