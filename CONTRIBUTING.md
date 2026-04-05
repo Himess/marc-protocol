@@ -23,10 +23,11 @@ npx hardhat test
 
 ## Testing
 
-- Contract tests: `npx hardhat test` (86 mock + 13 on-chain tests)
-- SDK tests: `cd sdk && npx vitest run` (72 tests)
-- Virtuals plugin: `cd packages/virtuals-plugin && npx vitest run` (28 tests)
+- Contract tests: `npx hardhat test` (184 tests including ConfidentialACP: 44)
+- SDK tests: `cd sdk && npx vitest run` (171 tests)
+- Virtuals plugin: `cd packages/virtuals-plugin && npx vitest run` (30 tests)
 - OpenClaw skill: `cd packages/openclaw-skill && npx vitest run` (25 tests)
+- MCP server: `cd packages/mcp-server && npx vitest run`
 - All tests: `npm run test:all`
 
 ## Pull Requests

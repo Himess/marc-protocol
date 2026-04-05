@@ -223,7 +223,7 @@ class InMemoryNonceStore {
  */
 export const FHE_CONFIDENTIAL_SCHEME = {
   name: FHE_SCHEME,
-  version: "4.3.0",
+  version: "1.0.0",
 
   /**
    * Client-side: Create an FHE payment for a 402 challenge.

@@ -1,6 +1,6 @@
 # FHE x402: Encrypted Payment Protocol for the Agent Economy
 
-*Version 4.0 — March 2026*
+*v1.0.0 — March 2026*
 
 ## Table of Contents
 
@@ -22,7 +22,7 @@
 
 FHE x402 is a token-centric privacy protocol for AI agent payments on Ethereum. Agents wrap USDC into encrypted cUSDC (an ERC-7984 confidential token), hold it directly in their wallets, and transfer it peer-to-peer with fully encrypted amounts. There is no intermediary contract holding funds — agents own their encrypted balances outright. Payment verification uses a thin nonce registry (X402PaymentVerifier) so servers can confirm that a payment occurred and meets a minimum price, without ever learning the actual amount transferred. The protocol integrates natively with the x402 HTTP payment standard, ERC-8004 agent identity, and ERC-8183 agentic commerce.
 
-226+ tests. Deployed on Ethereum Sepolia. Two contracts. No trusted setup.
+900+ tests. Deployed on Ethereum Sepolia. Two contracts. No trusted setup.
 
 ## The Problem
 
@@ -111,7 +111,7 @@ cUSDC.confidentialTransfer(to, encryptedAmount, inputProof)
     |
 verifier.recordPayment(payer, server, nonce, minPrice)
     |
-  [V4.2: payAndRecord() — single TX combining both steps]
+  [payAndRecord() — single TX combining both steps]
     |
 Server verifies ConfidentialTransfer + PaymentVerified events on-chain
     |
@@ -168,7 +168,7 @@ On-chain: encrypted balances change, amounts are HIDDEN
 4. **Agent Plugins** — Virtuals GAME (5 functions, 30 tests), OpenClaw (6 scripts, 25 tests), ElizaOS (3 actions).
 5. **Frontend Demo** — React app for wrap/transfer/unwrap.
 
-### Smart Contracts (Sepolia V4.0 — Live)
+### Smart Contracts (Sepolia — Live)
 
 | Contract | Address |
 |----------|---------|
@@ -244,7 +244,7 @@ Agent-to-agent `confidentialTransfer()` carries zero protocol fee. This is inten
 | Silent failure | Yes | No | No | No | Yes |
 | Token-centric (no shared contract) | Yes | No (shielded UTXO) | No | Partial | No |
 | Agent integrations | 3 frameworks | 2 frameworks | 0 | 0 | 0 |
-| Tests | 226+ | 282 | Unknown | Unknown | Unknown |
+| Tests | 900+ | 282 | Unknown | Unknown | Unknown |
 
 **FHE x402 vs PrivAgent:** Complementary approaches. FHE x402 provides amount privacy with simpler architecture (no circuits, no trusted setup, token-centric). PrivAgent provides full privacy (amounts + participants) with ZK-UTXO complexity.
 
@@ -290,12 +290,10 @@ const response = await fheFetch("https://api.example.com/data", {
 
 | Phase | Status | Deliverables |
 |-------|--------|-------------|
-| **V4.0** | Complete | Token-centric rewrite. ConfidentialUSDC (ERC-7984 + ERC7984ERC20Wrapper) + X402PaymentVerifier. SDK rewrite (tokenAddress + verifierAddress). 217 tests. Sepolia deployment. |
-| **V4.1** | Complete | Critical fixes: minPrice on recordPayment, assert to revert, unwrap recipient cleanup, dead code removal. |
-| **V4.2** | Complete | Single-TX payment: `payAndRecord()` combines confidentialTransfer + recordPayment. `confidentialTransferAndCall()` + `onConfidentialTransferReceived()` callback pattern. |
-| **V4.3** | Complete | Batch prepayment: `recordBatchPayment()` for prepaid request bundles. Batch credits in SDK middleware. |
-| **V5.0** | In Progress | ERC-8183 Agentic Commerce: job escrow, 1% completion fee. ERC-8004 full integration: identity + reputation + feedback. |
-| **V6.0** | Planned | ERC-8126 risk scoring. Encrypted reputation (FHE + ERC-8004). Multi-token factory (cWETH, cDAI). Cross-chain L2 (Base, Arbitrum). Mainnet deployment with professional audit. |
+| **v1.0.0** | Complete | Token-centric architecture. ConfidentialUSDC (ERC-7984) + X402PaymentVerifier. Single-TX payment (`payAndRecord`). Batch prepayment (`recordBatchPayment`). TypeScript SDK. Agent plugins. 900+ tests. Sepolia deployment. |
+| **v1.1** | In Progress | ERC-8183 Agentic Commerce: job escrow, 1% completion fee. ERC-8004 full integration: identity + reputation + feedback. |
+| **v1.2** | Planned | ERC-8126 risk scoring. Encrypted reputation (FHE + ERC-8004). Multi-token factory (cWETH, cDAI). |
+| **v2.0** | Planned | Cross-chain L2 (Base, Arbitrum). Mainnet deployment with professional audit. |
 
 ## Team
 
@@ -310,7 +308,7 @@ const response = await fheFetch("https://api.example.com/data", {
 
 ## The Ask
 
-**What we've built (V4.0 through V4.3 — complete):**
+**What we've built (v1.0.0 — complete):**
 - ConfidentialUSDC: ERC-7984 token wrapper with encrypted balances, fee-free transfers, 0.1% wrap/unwrap fee
 - X402PaymentVerifier: nonce registry with minPrice verification
 - Single-TX payment (payAndRecord) and batch prepayment (recordBatchPayment)
@@ -318,7 +316,7 @@ const response = await fheFetch("https://api.example.com/data", {
 - Agent integrations: Virtuals GAME (5 functions, 30 tests), OpenClaw (6 scripts, 25 tests), ElizaOS (3 actions)
 - ERC-8004 integration helpers
 - React frontend demo
-- 226+ tests, V4.0 audited, deployed on Ethereum Sepolia
+- 900+ tests, internally reviewed, deployed on Ethereum Sepolia
 
 **What we're building next:**
 1. ERC-8183 Agentic Commerce — job escrow for multi-step agent workflows (1% completion fee)

@@ -1,4 +1,4 @@
-# FHE x402 Protocol Specification (V4.0)
+# FHE x402 Protocol Specification
 
 ## Overview
 
@@ -8,11 +8,11 @@ FHE x402 is a token-centric confidential payment protocol for AI agents on Ether
 **Chain:** Ethereum Sepolia (chainId: 11155111)
 **Token:** USDC (6 decimals)
 
-## V4.0 Token-Centric Design
+## Token-Centric Design
 
-V4.0 replaces the pool-based architecture (V1.0-V3.0) with a token-centric model:
+The current architecture replaces the earlier pool-based model with a token-centric approach:
 
-| | V1.0-V3.0 (Pool) | V4.0 (Token-Centric) |
+| | Pool (legacy) | Token-Centric (current) |
 |---|---|---|
 | **Balances** | Pool holds all balances | Agents hold cUSDC directly |
 | **Deposit** | `pool.deposit(amount)` | `cUSDC.wrap(to, amount)` |

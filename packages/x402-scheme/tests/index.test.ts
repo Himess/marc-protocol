@@ -141,7 +141,7 @@ describe("FHE_CONFIDENTIAL_SCHEME", () => {
   });
 
   it("exports correct version", () => {
-    expect(FHE_CONFIDENTIAL_SCHEME.version).toBe("4.3.0");
+    expect(FHE_CONFIDENTIAL_SCHEME.version).toBe("1.0.0");
   });
 
   it("FHE_SCHEME matches scheme name", () => {

@@ -217,7 +217,7 @@ async function main() {
 
   const agentURI = JSON.stringify({
     name: "MARC-Demo-Agent",
-    version: "4.3.0",
+    version: "1.0.0",
     x402Support: true,
     scheme: "fhe-confidential-v1",
     services: ["data-analysis", "content-generation"],

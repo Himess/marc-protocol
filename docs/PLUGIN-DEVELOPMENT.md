@@ -148,12 +148,12 @@ describe("YourPlugin", () => {
 ```json
 {
   "name": "@marc-protocol/your-plugin",
-  "version": "4.3.0",
+  "version": "1.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "license": "BUSL-1.1",
   "peerDependencies": {
-    "marc-protocol-sdk": "^4.3.0",
+    "marc-protocol-sdk": "^1.0.0",
     "ethers": "^6.0.0"
   },
   "scripts": {

@@ -399,7 +399,7 @@ app.listen(3001);
 | `verifierAddress` | `string` | required | X402PaymentVerifier address |
 | `rpcUrl` | `string` | required | RPC endpoint |
 | `name` | `string` | "FHE x402 Facilitator" | Server name |
-| `version` | `string` | "4.3.0" | Version string |
+| `version` | `string` | "1.0.0" | Version string |
 | `apiKey` | `string` | — | API key for authentication (header: `X-FHE-x402-API-Key`) |
 | `chainId` | `number` | 11155111 | Chain ID |
 | `allowedOrigins` | `string[]` | [] (allow all) | CORS origins |
@@ -537,5 +537,5 @@ Model Context Protocol server exposing MARC Protocol tools to AI agents.
 
 | Chain | ID | Status |
 |-------|----|--------|
-| Ethereum Sepolia | 11155111 | Deployed (V4.3 contracts) |
+| Ethereum Sepolia | 11155111 | Deployed (v1.0.0) |
 | Ethereum Mainnet | 1 | Addresses pending deployment |

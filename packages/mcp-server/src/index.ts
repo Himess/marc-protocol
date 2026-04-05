@@ -156,7 +156,7 @@ async function main() {
   const walletAddress = await wallet.getAddress();
 
   process.stderr.write(
-    `MARC MCP Server v4.3.0\n` +
+    `MARC MCP Server v1.0.0\n` +
       `  Chain: ${chain.name} (${chainId})\n` +
       `  Wallet: ${walletAddress}\n` +
       `  RPC: ${rpcUrl}\n`
@@ -165,7 +165,7 @@ async function main() {
   // Create MCP server
   const server = new McpServer({
     name: "marc-protocol",
-    version: "4.3.0",
+    version: "1.0.0",
   });
 
   // ========================================================================

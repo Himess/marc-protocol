@@ -22,7 +22,7 @@ export function protocolInfo(chain: ChainConfig, walletAddress: string): string 
 
   return [
     `MARC Protocol — FHE Confidential Payment Protocol`,
-    `Version: 4.3.0`,
+    `Version: 1.0.0`,
     `Scheme: ${FHE_SCHEME}`,
     "",
     `=== Chain ===`,

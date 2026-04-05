@@ -430,7 +430,7 @@ describe("protocol_info", () => {
     );
 
     expect(result).toContain("MARC Protocol");
-    expect(result).toContain("4.3.0");
+    expect(result).toContain("1.0.0");
     expect(result).toContain("fhe-confidential-v1");
     expect(result).toContain("Ethereum Sepolia");
     expect(result).toContain("11155111");

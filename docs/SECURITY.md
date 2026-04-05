@@ -4,11 +4,7 @@
 
 | Version | Supported |
 |---------|-----------|
-| V4.3    | Yes       |
-| V4.2    | Yes       |
-| V4.1    | Yes       |
-| V4.0    | Yes       |
-| < V4.0  | No        |
+| v1.0.0  | Yes       |
 
 ## Reporting a Vulnerability
 
@@ -46,7 +42,7 @@ If you discover a security vulnerability, please report it responsibly:
 - **CEI pattern**: Check-Effects-Interactions ordering in all state-changing functions (state reset BEFORE external calls)
 - **FHE ACL**: Proper `FHE.allowTransient()` and `FHE.allow()` calls for encrypted value access control
 
-### V4.0 Specific Measures
+### Additional Measures
 
 - **No `assert()` statements**: All state validation uses `if/revert` with custom errors (assert consumes all gas on failure, revert does not)
 - **`_unwrapRecipients` cleanup**: `delete _unwrapRecipients[burntAmount]` called in `finalizeUnwrap` to prevent storage bloat
@@ -62,11 +58,11 @@ If you discover a security vulnerability, please report it responsibly:
 - **API key authentication**: Facilitator server uses timing-safe comparison (`crypto.timingSafeEqual`) for API key verification
 - **Minimum confirmations**: Configurable `minConfirmations` for block confirmation depth before accepting payment
 
-## V4.2 Security Considerations
+## Single-TX Payment Security
 
 ### `payAndRecord()` — Single-TX Payment
 
-- **Atomicity**: Combines `confidentialTransfer()` + `recordPayment()` into a single transaction. Either both succeed or both revert. Eliminates the V4.0 risk of orphaned transfers (transfer succeeds but nonce recording fails).
+- **Atomicity**: Combines `confidentialTransfer()` + `recordPayment()` into a single transaction. Either both succeed or both revert. Eliminates the risk of orphaned transfers (transfer succeeds but nonce recording fails).
 - **`confidentialTransferAndCall()`**: Calls `onConfidentialTransferReceived()` on the recipient contract. The callback executes in the same transaction, so the recipient can perform verification logic atomically.
 - **Reentrancy risk**: The `onConfidentialTransferReceived()` callback introduces a reentrancy vector. Mitigated by `nonReentrant` on the transfer function — the callback cannot re-enter `confidentialTransfer` or `payAndRecord`.
 
@@ -75,7 +71,7 @@ If you discover a security vulnerability, please report it responsibly:
 - The recipient contract must implement `onConfidentialTransferReceived(address from, bytes32 amount, bytes data) returns (bytes4)`. Returning an incorrect selector causes the transfer to revert.
 - Arbitrary external calls from the callback are constrained by the `nonReentrant` guard on the calling function.
 
-## V4.3 Security Considerations
+## Batch Prepayment Security
 
 ### `recordBatchPayment()` — Batch Prepayment
 
@@ -100,7 +96,7 @@ The default SDK stores (InMemoryNonceStore, in-memory rate limiter) reset on ser
 
 ### 4. FHE Gas Costs
 
-FHE operations (euint64 add, sub, select, compare) are gas-expensive on Ethereum L1. A single `confidentialTransfer` costs approximately $2-5 at current gas prices. Batch prepayment (V4.3) amortizes the per-request cost, and L2 deployment (planned V6.0) will reduce costs further.
+FHE operations (euint64 add, sub, select, compare) are gas-expensive on Ethereum L1. A single `confidentialTransfer` costs approximately $2-5 at current gas prices. Batch prepayment amortizes the per-request cost, and L2 deployment will reduce costs further.
 
 ### 5. fhevmjs WASM Dependency
 
@@ -110,26 +106,26 @@ Browser-based clients must load the fhevmjs WASM module (~2MB) for FHE encryptio
 
 Servers cannot verify the exact encrypted amount transferred — they can only verify that a `ConfidentialTransfer` event was emitted and that the `minPrice` in the nonce registry meets their required price. An agent could transfer more than `minPrice` (overpayment), and the server would have no way to detect this. This is by design — amount privacy means the server cannot inspect the actual value.
 
-### 7. Dual-TX Non-Atomicity (V4.0 only)
+### 7. Dual-TX Non-Atomicity (Legacy)
 
-In V4.0, `confidentialTransfer` and `recordPayment` are separate transactions. If the first succeeds and the second fails, funds are transferred but the nonce is not recorded. **This is resolved in V4.2** with the atomic `payAndRecord()` function.
+In the original dual-TX flow, `confidentialTransfer` and `recordPayment` are separate transactions. If the first succeeds and the second fails, funds are transferred but the nonce is not recorded. **This is resolved** with the atomic `payAndRecord()` function.
 
 ## Audit History
 
-### V4.0 Audit (Internal — 2026-03-10)
+### Internal Audit (2026-03-10)
 
-Full audit report: [docs/AUDIT-V4.0.md](AUDIT-V4.0.md)
+Full audit report: [docs/archived/AUDIT-V4.0.md](archived/AUDIT-V4.0.md)
 
-4 findings fixed in V4.1:
+4 findings fixed:
 
 | Severity | Finding | Fix |
 |----------|---------|-----|
 | CRITICAL | `minPrice` parameter missing from `recordPayment` — servers could not verify committed price | Added `minPrice` parameter to `recordPayment(payer, server, nonce, minPrice)` |
 | HIGH | `assert()` used for state validation in ConfidentialUSDC — consumes all gas on failure | Replaced with `if/revert` and custom errors |
 | MEDIUM | `_unwrapRecipients` mapping not cleaned up after `finalizeUnwrap` — storage bloat | Added `delete _unwrapRecipients[burntAmount]` in `finalizeUnwrap` |
-| LOW | `POOL_CAP_EXCEEDED` dead error code in SDK errors.ts — leftover from pre-V4.0 architecture | Removed dead error code |
+| LOW | `POOL_CAP_EXCEEDED` dead error code in SDK errors.ts — leftover from legacy architecture | Removed dead error code |
 
-### Overall Security Score: 8.5/10 (post V4.1 fixes)
+### Overall Security Score: 8.5/10
 
 **Strong:**
 - Reentrancy protection on all state-changing functions
