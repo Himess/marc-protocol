@@ -1,12 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-import {
-  FHE_SCHEME,
-  FEE_BPS,
-  BPS,
-  MIN_PROTOCOL_FEE,
-  USDC_DECIMALS,
-} from "../config.js";
+import { FHE_SCHEME, FEE_BPS, BPS, MIN_PROTOCOL_FEE, USDC_DECIMALS } from "../config.js";
 import type { ChainConfig } from "../config.js";
 
 /**
@@ -17,7 +11,7 @@ import type { ChainConfig } from "../config.js";
  * @returns Tool result text with protocol details
  */
 export function protocolInfo(chain: ChainConfig, walletAddress: string): string {
-  const feePercent = Number(FEE_BPS) / Number(BPS) * 100;
+  const feePercent = (Number(FEE_BPS) / Number(BPS)) * 100;
   const minFeeUsdc = Number(MIN_PROTOCOL_FEE) / 1_000_000;
 
   return [

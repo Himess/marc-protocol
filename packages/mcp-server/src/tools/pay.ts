@@ -75,7 +75,7 @@ export async function payX402(
   // Step 2: Parse 402 payment requirements
   let paymentRequired: PaymentRequired;
   try {
-    paymentRequired = await initialResponse.json() as PaymentRequired;
+    paymentRequired = (await initialResponse.json()) as PaymentRequired;
   } catch {
     throw new Error("Failed to parse 402 response body as JSON");
   }
@@ -85,21 +85,17 @@ export async function payX402(
   }
 
   // Step 3: Select matching FHE requirement
-  const requirement = paymentRequired.accepts.find(
-    (r) => r.scheme === FHE_SCHEME
-  );
+  const requirement = paymentRequired.accepts.find((r) => r.scheme === FHE_SCHEME);
 
   if (!requirement) {
     const schemes = paymentRequired.accepts.map((r) => r.scheme).join(", ");
-    throw new Error(
-      `No matching FHE payment scheme found. Server accepts: ${schemes}`
-    );
+    throw new Error(`No matching FHE payment scheme found. Server accepts: ${schemes}`);
   }
 
   if (!fhevmInstance) {
     throw new Error(
       "FHE instance not initialized. Cannot make encrypted payment. " +
-      "Set FHEVM_GATEWAY_URL environment variable or ensure @zama-fhe/relayer-sdk is available."
+        "Set FHEVM_GATEWAY_URL environment variable or ensure @zama-fhe/relayer-sdk is available."
     );
   }
 
@@ -108,10 +104,7 @@ export async function payX402(
   const nonce = ethers.hexlify(ethers.randomBytes(32));
 
   // Step 4: Encrypt amount with FHE
-  const input = fhevmInstance.createEncryptedInput(
-    requirement.tokenAddress,
-    signerAddress
-  );
+  const input = fhevmInstance.createEncryptedInput(requirement.tokenAddress, signerAddress);
   input.add64(amount);
 
   const encrypted = await Promise.race([
@@ -142,17 +135,13 @@ export async function payX402(
   // Step 6: Call verifier.recordPayment()
   const verifier = new Contract(requirement.verifierAddress, VERIFIER_ABI, wallet);
 
-  const verifierTx = await verifier.recordPayment(
-    requirement.recipientAddress,
-    nonce,
-    amount
-  );
+  const verifierTx = await verifier.recordPayment(requirement.recipientAddress, nonce, amount);
   const verifierReceipt = await verifierTx.wait();
 
   if (!verifierReceipt || verifierReceipt.status === 0) {
     throw new Error(
       `Verifier recordPayment failed: ${verifierTx.hash}. ` +
-      `Transfer TX succeeded: ${transferTx.hash} — funds may need manual recovery.`
+        `Transfer TX succeeded: ${transferTx.hash} — funds may need manual recovery.`
     );
   }
 
@@ -211,11 +200,7 @@ export async function payX402(
 // Helpers
 // ============================================================================
 
-async function fetchWithTimeout(
-  url: string,
-  init: RequestInit,
-  timeoutMs: number
-): Promise<Response> {
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 

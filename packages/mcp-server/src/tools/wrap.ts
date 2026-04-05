@@ -14,11 +14,7 @@ import type { ChainConfig } from "../config.js";
  *
  * @returns Tool result text with tx hashes and amounts
  */
-export async function wrapUsdc(
-  wallet: Wallet,
-  chain: ChainConfig,
-  amount: string
-): Promise<string> {
+export async function wrapUsdc(wallet: Wallet, chain: ChainConfig, amount: string): Promise<string> {
   const { usdcAddress, tokenAddress } = chain.contracts;
   const parsedAmount = parseUnits(amount, USDC_DECIMALS);
 
@@ -62,11 +58,7 @@ export async function wrapUsdc(
     lines.push(`Approve TX: ${chain.explorerUrl}/tx/${approveTxHash}`);
   }
 
-  lines.push(
-    "",
-    `cUSDC contract: ${tokenAddress}`,
-    `Your address: ${walletAddress}`
-  );
+  lines.push("", `cUSDC contract: ${tokenAddress}`, `Your address: ${walletAddress}`);
 
   return lines.join("\n");
 }

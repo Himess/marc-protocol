@@ -56,17 +56,19 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
 
   // CORS headers for cross-origin requests
   // Default (empty array) = block all cross-origin requests — callers must explicitly whitelist origins
-  app.use((_req: import("express").Request, res: import("express").Response, nextFn: import("express").NextFunction) => {
-    const origin = _req.headers?.origin;
-    if (allowedOrigins.length > 0 && origin && allowedOrigins.includes(origin)) {
-      res.setHeader("Access-Control-Allow-Origin", origin);
-      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-FHE-x402-API-Key");
+  app.use(
+    (_req: import("express").Request, res: import("express").Response, nextFn: import("express").NextFunction) => {
+      const origin = _req.headers?.origin;
+      if (allowedOrigins.length > 0 && origin && allowedOrigins.includes(origin)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-FHE-x402-API-Key");
+      }
+      // If allowedOrigins is empty or origin doesn't match, don't set CORS headers — block cross-origin
+      if (_req.method === "OPTIONS") return res.status(204).end();
+      nextFn();
     }
-    // If allowedOrigins is empty or origin doesn't match, don't set CORS headers — block cross-origin
-    if (_req.method === "OPTIONS") return res.status(204).end();
-    nextFn();
-  });
+  );
 
   const chainId = config.chainId ?? 11155111;
   const network = `eip155:${chainId}`;
@@ -76,14 +78,18 @@ export async function createFacilitatorServer(config: FacilitatorConfig): Promis
     console.warn("[fhe-x402] WARNING: No API key configured. Facilitator endpoints are unauthenticated.");
   }
   if (config.apiKey) {
-    app.use((req: import("express").Request, res: import("express").Response, nextFn: import("express").NextFunction) => {
-      if (req.path === "/health" || req.path === "/info") return nextFn();
-      const key = (req.headers["x-fhe-x402-api-key"] as string | undefined) || req.headers["authorization"]?.replace("Bearer ", "");
-      if (!key || !timingSafeCompare(key, config.apiKey!)) {
-        return res.status(401).json({ valid: false, error: "Unauthorized: invalid API key" });
+    app.use(
+      (req: import("express").Request, res: import("express").Response, nextFn: import("express").NextFunction) => {
+        if (req.path === "/health" || req.path === "/info") return nextFn();
+        const key =
+          (req.headers["x-fhe-x402-api-key"] as string | undefined) ||
+          req.headers["authorization"]?.replace("Bearer ", "");
+        if (!key || !timingSafeCompare(key, config.apiKey!)) {
+          return res.status(401).json({ valid: false, error: "Unauthorized: invalid API key" });
+        }
+        nextFn();
       }
-      nextFn();
-    });
+    );
   }
 
   // Lazy-init provider with reconnection on failure

@@ -13,10 +13,25 @@ export type {
   NonceStore,
 } from "./types.js";
 
-export { FHE_SCHEME, TOKEN_ABI, VERIFIER_ABI, CONFIDENTIAL_ACP_ABI, CONFIDENTIAL_ACP_ADDRESS, FEE_BPS, BPS, MIN_PROTOCOL_FEE } from "./types.js";
+export {
+  FHE_SCHEME,
+  TOKEN_ABI,
+  VERIFIER_ABI,
+  CONFIDENTIAL_ACP_ABI,
+  CONFIDENTIAL_ACP_ADDRESS,
+  FEE_BPS,
+  BPS,
+  MIN_PROTOCOL_FEE,
+} from "./types.js";
 
 // Payment handler (client-side)
-export { FhePaymentHandler, decodePaymentHeader, decodeBatchPaymentHeader, verifyPaymentSignature, canonicalPayloadMessage } from "./fhePaymentHandler.js";
+export {
+  FhePaymentHandler,
+  decodePaymentHeader,
+  decodeBatchPaymentHeader,
+  verifyPaymentSignature,
+  canonicalPayloadMessage,
+} from "./fhePaymentHandler.js";
 export type { FhePaymentHandlerOptions, FhePaymentResult, FheBatchPaymentResult } from "./fhePaymentHandler.js";
 
 // Paywall middleware (server-side)

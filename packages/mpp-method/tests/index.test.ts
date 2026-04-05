@@ -17,12 +17,8 @@ vi.mock("ethers", () => {
     getAddress: (addr: string) => addr, // passthrough for tests
     hexlify: () => "0x" + "ab".repeat(32),
     randomBytes: (n: number) => new Uint8Array(n).fill(0xab),
-    verifyTypedData: (
-      _domain: unknown,
-      _types: unknown,
-      _value: unknown,
-      _sig: string,
-    ) => "0x1234567890abcdef1234567890abcdef12345678",
+    verifyTypedData: (_domain: unknown, _types: unknown, _value: unknown, _sig: string) =>
+      "0x1234567890abcdef1234567890abcdef12345678",
     verifyMessage: (_msg: string, _sig: string) => "0x1234567890abcdef1234567890abcdef12345678",
     Interface: vi.fn().mockImplementation(() => ({
       parseLog: vi.fn().mockReturnValue({
@@ -57,7 +53,9 @@ vi.mock("crypto", () => {
     createHmac: (_alg: string, secret: string) => {
       let data = "";
       return {
-        update: (input: string) => { data = input; },
+        update: (input: string) => {
+          data = input;
+        },
         digest: (_enc: string) => {
           // Simple deterministic "hash" for testing that incorporates the secret
           let hash = 0;
@@ -72,7 +70,10 @@ vi.mock("crypto", () => {
     createHash: (_alg: string) => {
       let data = "";
       const self = {
-        update: (input: string) => { data = input; return self; },
+        update: (input: string) => {
+          data = input;
+          return self;
+        },
         digest: (_enc: string) => {
           // Simple deterministic hash for testing
           let hash = 0;
@@ -176,7 +177,7 @@ const testConfig: MarcMppConfig = {
  */
 function buildTestCredential(
   overrides?: Partial<MppCredential["payload"]>,
-  challengeOverrides?: Partial<MppCredential["challenge"]>,
+  challengeOverrides?: Partial<MppCredential["challenge"]>
 ): MppCredential {
   return {
     challenge: {
@@ -966,9 +967,9 @@ describe("handleMpp402", () => {
       signMessage: mockSignMessage,
     };
 
-    await expect(
-      handleMpp402(response, mockSigner as any, createMockFhevmInstance()),
-    ).rejects.toThrow("Expected 402 response");
+    await expect(handleMpp402(response, mockSigner as any, createMockFhevmInstance())).rejects.toThrow(
+      "Expected 402 response"
+    );
   });
 
   it("throws if no WWW-Authenticate header", async () => {
@@ -979,9 +980,9 @@ describe("handleMpp402", () => {
       signMessage: mockSignMessage,
     };
 
-    await expect(
-      handleMpp402(response, mockSigner as any, createMockFhevmInstance()),
-    ).rejects.toThrow("Missing WWW-Authenticate header");
+    await expect(handleMpp402(response, mockSigner as any, createMockFhevmInstance())).rejects.toThrow(
+      "Missing WWW-Authenticate header"
+    );
   });
 
   it("throws if WWW-Authenticate is not a Payment challenge", async () => {
@@ -995,9 +996,9 @@ describe("handleMpp402", () => {
       signMessage: mockSignMessage,
     };
 
-    await expect(
-      handleMpp402(response, mockSigner as any, createMockFhevmInstance()),
-    ).rejects.toThrow("Failed to parse MPP challenge");
+    await expect(handleMpp402(response, mockSigner as any, createMockFhevmInstance())).rejects.toThrow(
+      "Failed to parse MPP challenge"
+    );
   });
 
   it("throws if method is not fhe-confidential", async () => {
@@ -1026,9 +1027,9 @@ describe("handleMpp402", () => {
       signMessage: mockSignMessage,
     };
 
-    await expect(
-      handleMpp402(response, mockSigner as any, createMockFhevmInstance()),
-    ).rejects.toThrow("Unsupported payment method");
+    await expect(handleMpp402(response, mockSigner as any, createMockFhevmInstance())).rejects.toThrow(
+      "Unsupported payment method"
+    );
   });
 
   it("throws if challenge has expired", async () => {
@@ -1058,9 +1059,9 @@ describe("handleMpp402", () => {
       signMessage: mockSignMessage,
     };
 
-    await expect(
-      handleMpp402(response, mockSigner as any, createMockFhevmInstance()),
-    ).rejects.toThrow("Challenge has expired");
+    await expect(handleMpp402(response, mockSigner as any, createMockFhevmInstance())).rejects.toThrow(
+      "Challenge has expired"
+    );
   });
 });
 
@@ -1241,16 +1242,10 @@ describe("InMemoryChallengeStore (Feature 3)", () => {
       setHeader: vi.fn(),
     };
 
-    await middleware(
-      { method: "GET", headers: { authorization: `Payment ${encoded}` } },
-      mockRes,
-      vi.fn(),
-    );
+    await middleware({ method: "GET", headers: { authorization: `Payment ${encoded}` } }, mockRes, vi.fn());
 
     expect(mockRes.status).toHaveBeenCalledWith(400);
-    expect(mockRes.json).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Unknown Challenge" }),
-    );
+    expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({ title: "Unknown Challenge" }));
   });
 });
 
@@ -1278,23 +1273,14 @@ describe("MppNonceStore interface (Feature 4)", () => {
       json: vi.fn(),
       setHeader: vi.fn(),
     };
-    await middleware(
-      { method: "GET", headers: {} },
-      challengeRes,
-      vi.fn(),
-    );
+    await middleware({ method: "GET", headers: {} }, challengeRes, vi.fn());
 
     // Extract challenge ID from the WWW-Authenticate header
-    const wwwAuth = challengeRes.setHeader.mock.calls.find(
-      (c: string[]) => c[0] === "WWW-Authenticate",
-    )?.[1] as string;
+    const wwwAuth = challengeRes.setHeader.mock.calls.find((c: string[]) => c[0] === "WWW-Authenticate")?.[1] as string;
     const challengeIdMatch = wwwAuth?.match(/id="([^"]*)"/);
     const challengeId = challengeIdMatch?.[1] ?? "test";
 
-    const cred = buildTestCredential(
-      { nonce: "0x" + "dd".repeat(32) },
-      { id: challengeId },
-    );
+    const cred = buildTestCredential({ nonce: "0x" + "dd".repeat(32) }, { id: challengeId });
     const encoded = base64UrlEncode(cred);
 
     const mockRes = {
@@ -1303,18 +1289,12 @@ describe("MppNonceStore interface (Feature 4)", () => {
       setHeader: vi.fn(),
     };
 
-    await middleware(
-      { method: "GET", headers: { authorization: `Payment ${encoded}` } },
-      mockRes,
-      vi.fn(),
-    );
+    await middleware({ method: "GET", headers: { authorization: `Payment ${encoded}` } }, mockRes, vi.fn());
 
     expect(externalStore.has).toHaveBeenCalledWith("0x" + "dd".repeat(32));
     // Since has returned true, should reject as duplicate
     expect(mockRes.status).toHaveBeenCalledWith(400);
-    expect(mockRes.json).toHaveBeenCalledWith(
-      expect.objectContaining({ detail: "Nonce already used" }),
-    );
+    expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({ detail: "Nonce already used" }));
   });
 
   it("external nonce store add is called for fresh nonces", async () => {
@@ -1336,22 +1316,13 @@ describe("MppNonceStore interface (Feature 4)", () => {
       json: vi.fn(),
       setHeader: vi.fn(),
     };
-    await middleware(
-      { method: "GET", headers: {} },
-      challengeRes,
-      vi.fn(),
-    );
+    await middleware({ method: "GET", headers: {} }, challengeRes, vi.fn());
 
-    const wwwAuth = challengeRes.setHeader.mock.calls.find(
-      (c: string[]) => c[0] === "WWW-Authenticate",
-    )?.[1] as string;
+    const wwwAuth = challengeRes.setHeader.mock.calls.find((c: string[]) => c[0] === "WWW-Authenticate")?.[1] as string;
     const challengeIdMatch = wwwAuth?.match(/id="([^"]*)"/);
     const challengeId = challengeIdMatch?.[1] ?? "test";
 
-    const cred = buildTestCredential(
-      { nonce: "0x" + "ee".repeat(32) },
-      { id: challengeId },
-    );
+    const cred = buildTestCredential({ nonce: "0x" + "ee".repeat(32) }, { id: challengeId });
     const encoded = base64UrlEncode(cred);
 
     const mockRes = {
@@ -1360,11 +1331,7 @@ describe("MppNonceStore interface (Feature 4)", () => {
       setHeader: vi.fn(),
     };
 
-    await middleware(
-      { method: "GET", headers: { authorization: `Payment ${encoded}` } },
-      mockRes,
-      vi.fn(),
-    );
+    await middleware({ method: "GET", headers: { authorization: `Payment ${encoded}` } }, mockRes, vi.fn());
 
     expect(externalStore.has).toHaveBeenCalledWith("0x" + "ee".repeat(32));
     expect(externalStore.add).toHaveBeenCalledWith("0x" + "ee".repeat(32));
@@ -1442,9 +1409,7 @@ describe("RateLimiter (Feature 5)", () => {
     };
     await middleware(makeReq(), res, vi.fn());
     expect(res.status).toHaveBeenCalledWith(429);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Too Many Requests" }),
-    );
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ title: "Too Many Requests" }));
     expect(res.setHeader).toHaveBeenCalledWith("Retry-After", "60");
   });
 });

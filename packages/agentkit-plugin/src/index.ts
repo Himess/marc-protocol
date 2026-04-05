@@ -646,14 +646,11 @@ export class MarcFheProvider {
         throw new Error("Verifier TX reverted");
       }
     } catch (err) {
-      throw new MarcProviderError(
-        "Verifier recordPayment failed. Transfer succeeded — retry with a new nonce.",
-        {
-          transferTxHash: transferTx.hash,
-          verifierTxHash: verifierTx?.hash,
-          nonce,
-        }
-      );
+      throw new MarcProviderError("Verifier recordPayment failed. Transfer succeeded — retry with a new nonce.", {
+        transferTxHash: transferTx.hash,
+        verifierTxHash: verifierTx?.hash,
+        nonce,
+      });
     }
 
     // Step 5: Build payment header and retry

@@ -80,7 +80,13 @@ export interface FhePaywallConfig {
   /** RPC request timeout in ms (default: 30000) */
   rpcTimeoutMs?: number;
   /** Callback invoked after a payment is successfully verified */
-  onPaymentVerified?: (info: { requestId: string; payer: string; nonce: string; amount: string; latencyMs: number }) => void;
+  onPaymentVerified?: (info: {
+    requestId: string;
+    payer: string;
+    nonce: string;
+    amount: string;
+    latencyMs: number;
+  }) => void;
   /** Callback invoked when a payment fails verification */
   onPaymentFailed?: (info: { requestId: string; error: string; latencyMs: number }) => void;
   /** Webhook URL to POST payment settlement events to (fire-and-forget) */

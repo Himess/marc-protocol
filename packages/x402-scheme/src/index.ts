@@ -239,7 +239,7 @@ export const FHE_CONFIDENTIAL_SCHEME = {
   createPayment: async (
     challenge: FhePaymentRequired,
     signer: Signer,
-    fhevmInstance: FhevmInstance,
+    fhevmInstance: FhevmInstance
   ): Promise<{
     paymentHeader: string;
     txHash: string;
@@ -270,7 +270,7 @@ export const FHE_CONFIDENTIAL_SCHEME = {
     const tx = await token.confidentialTransfer(
       requirement.recipientAddress,
       encrypted.handles[0],
-      encrypted.inputProof,
+      encrypted.inputProof
     );
     const receipt = await tx.wait();
 
@@ -495,9 +495,19 @@ export function createFhePaywall(config: FhePaywallConfig) {
   const nonceStore = new InMemoryNonceStore();
 
   return async (
-    req: { method: string; protocol?: string; originalUrl?: string; headers: Record<string, string | undefined>; get?: (key: string) => string | undefined },
-    res: { status: (code: number) => any; json: (body: unknown) => void; setHeader: (key: string, value: string) => void },
-    next: () => void,
+    req: {
+      method: string;
+      protocol?: string;
+      originalUrl?: string;
+      headers: Record<string, string | undefined>;
+      get?: (key: string) => string | undefined;
+    },
+    res: {
+      status: (code: number) => any;
+      json: (body: unknown) => void;
+      setHeader: (key: string, value: string) => void;
+    },
+    next: () => void
   ) => {
     const paymentHeader = req.headers["payment"];
 
@@ -580,7 +590,7 @@ export function createFhePaywall(config: FhePaywallConfig) {
 export function createFheFetch(
   signer: Signer,
   fhevmInstance: FhevmInstance,
-  options?: { maxPayment?: bigint; allowedNetworks?: string[]; timeoutMs?: number },
+  options?: { maxPayment?: bigint; allowedNetworks?: string[]; timeoutMs?: number }
 ): (url: string | URL, init?: RequestInit) => Promise<Response> {
   const timeoutMs = options?.timeoutMs ?? 30_000;
   const maxPayment = options?.maxPayment;
@@ -617,7 +627,7 @@ export function createFheFetch(
     const paymentResult = await FHE_CONFIDENTIAL_SCHEME.createPayment(
       { x402Version: 1, accepts: [requirement], resource: body.resource },
       signer,
-      fhevmInstance,
+      fhevmInstance
     );
 
     // Retry with Payment header

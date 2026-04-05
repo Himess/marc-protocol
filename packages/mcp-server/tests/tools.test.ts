@@ -147,9 +147,7 @@ describe("wrap_usdc", () => {
 
   it("should reject zero amount", async () => {
     const wallet = createMockWallet();
-    await expect(wrapUsdc(wallet, SEPOLIA_CONFIG, "0")).rejects.toThrow(
-      "Amount must be greater than 0"
-    );
+    await expect(wrapUsdc(wallet, SEPOLIA_CONFIG, "0")).rejects.toThrow("Amount must be greater than 0");
   });
 
   it("should reject negative amount", async () => {
@@ -176,17 +174,13 @@ describe("unwrap_cusdc", () => {
 
   it("should fail without FHE instance", async () => {
     const wallet = createMockWallet();
-    await expect(unwrapCusdc(wallet, SEPOLIA_CONFIG, "1.00", null)).rejects.toThrow(
-      "FHE instance not initialized"
-    );
+    await expect(unwrapCusdc(wallet, SEPOLIA_CONFIG, "1.00", null)).rejects.toThrow("FHE instance not initialized");
   });
 
   it("should reject zero amount", async () => {
     const wallet = createMockWallet();
     const fhevm = createMockFhevmInstance();
-    await expect(unwrapCusdc(wallet, SEPOLIA_CONFIG, "0", fhevm)).rejects.toThrow(
-      "Amount must be greater than 0"
-    );
+    await expect(unwrapCusdc(wallet, SEPOLIA_CONFIG, "0", fhevm)).rejects.toThrow("Amount must be greater than 0");
   });
 });
 
@@ -215,21 +209,15 @@ describe("confidential_transfer", () => {
   it("should reject invalid recipient address", async () => {
     const wallet = createMockWallet();
     const fhevm = createMockFhevmInstance();
-    await expect(
-      confidentialTransfer(wallet, SEPOLIA_CONFIG, "not-an-address", "1.00", fhevm)
-    ).rejects.toThrow("Invalid recipient address");
+    await expect(confidentialTransfer(wallet, SEPOLIA_CONFIG, "not-an-address", "1.00", fhevm)).rejects.toThrow(
+      "Invalid recipient address"
+    );
   });
 
   it("should fail without FHE instance", async () => {
     const wallet = createMockWallet();
     await expect(
-      confidentialTransfer(
-        wallet,
-        SEPOLIA_CONFIG,
-        "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
-        "1.00",
-        null
-      )
+      confidentialTransfer(wallet, SEPOLIA_CONFIG, "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd", "1.00", null)
     ).rejects.toThrow("FHE instance not initialized");
   });
 
@@ -237,13 +225,7 @@ describe("confidential_transfer", () => {
     const wallet = createMockWallet();
     const fhevm = createMockFhevmInstance();
     await expect(
-      confidentialTransfer(
-        wallet,
-        SEPOLIA_CONFIG,
-        "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
-        "0",
-        fhevm
-      )
+      confidentialTransfer(wallet, SEPOLIA_CONFIG, "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd", "0", fhevm)
     ).rejects.toThrow("Amount must be greater than 0");
   });
 });
@@ -267,20 +249,14 @@ describe("get_balance", () => {
 
   it("should return balances for specific address", async () => {
     const wallet = createMockWallet();
-    const result = await getBalance(
-      wallet,
-      SEPOLIA_CONFIG,
-      "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
-    );
+    const result = await getBalance(wallet, SEPOLIA_CONFIG, "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd");
 
     expect(result).toContain("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd");
   });
 
   it("should reject invalid address", async () => {
     const wallet = createMockWallet();
-    await expect(getBalance(wallet, SEPOLIA_CONFIG, "bad")).rejects.toThrow(
-      "Invalid address"
-    );
+    await expect(getBalance(wallet, SEPOLIA_CONFIG, "bad")).rejects.toThrow("Invalid address");
   });
 
   it("should show no encrypted balance when handle is zero", async () => {
@@ -303,9 +279,7 @@ describe("pay_x402", () => {
   it("should handle non-402 response", async () => {
     // Mock global fetch to return 200
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response("OK", { status: 200, statusText: "OK" })
-    );
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response("OK", { status: 200, statusText: "OK" }));
 
     try {
       const wallet = createMockWallet();
@@ -389,9 +363,9 @@ describe("pay_x402", () => {
 
     try {
       const wallet = createMockWallet();
-      await expect(
-        payX402(wallet, SEPOLIA_CONFIG, "https://example.com/api", "GET", null)
-      ).rejects.toThrow("FHE instance not initialized");
+      await expect(payX402(wallet, SEPOLIA_CONFIG, "https://example.com/api", "GET", null)).rejects.toThrow(
+        "FHE instance not initialized"
+      );
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -413,9 +387,9 @@ describe("pay_x402", () => {
     try {
       const wallet = createMockWallet();
       const fhevm = createMockFhevmInstance();
-      await expect(
-        payX402(wallet, SEPOLIA_CONFIG, "https://example.com/api", "GET", fhevm)
-      ).rejects.toThrow("No matching FHE payment scheme found");
+      await expect(payX402(wallet, SEPOLIA_CONFIG, "https://example.com/api", "GET", fhevm)).rejects.toThrow(
+        "No matching FHE payment scheme found"
+      );
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -424,10 +398,7 @@ describe("pay_x402", () => {
 
 describe("protocol_info", () => {
   it("should return protocol configuration", () => {
-    const result = protocolInfo(
-      SEPOLIA_CONFIG,
-      "0x1234567890abcdef1234567890abcdef12345678"
-    );
+    const result = protocolInfo(SEPOLIA_CONFIG, "0x1234567890abcdef1234567890abcdef12345678");
 
     expect(result).toContain("MARC Protocol");
     expect(result).toContain("1.0.0");

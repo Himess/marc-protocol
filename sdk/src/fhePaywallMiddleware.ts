@@ -372,32 +372,52 @@ export function fhePaywall(config: FhePaywallConfig): RequestHandler {
       const json = Buffer.from(paymentHeader, "base64").toString("utf-8");
       payload = JSON.parse(json) as FhePaymentPayload;
     } catch {
-      safeOnPaymentFailed(config, { requestId, error: "Invalid Payment header encoding", latencyMs: Date.now() - startTime });
+      safeOnPaymentFailed(config, {
+        requestId,
+        error: "Invalid Payment header encoding",
+        latencyMs: Date.now() - startTime,
+      });
       res.status(400).json({ error: "Invalid Payment header encoding" });
       return;
     }
 
     // Validate structure
     if (payload.scheme !== FHE_SCHEME) {
-      safeOnPaymentFailed(config, { requestId, error: "Unsupported payment scheme", latencyMs: Date.now() - startTime });
+      safeOnPaymentFailed(config, {
+        requestId,
+        error: "Unsupported payment scheme",
+        latencyMs: Date.now() - startTime,
+      });
       res.status(400).json({ error: "Unsupported payment scheme" });
       return;
     }
     if (!payload.txHash || !payload.nonce || !payload.from) {
-      safeOnPaymentFailed(config, { requestId, error: "Missing required payment fields", latencyMs: Date.now() - startTime });
+      safeOnPaymentFailed(config, {
+        requestId,
+        error: "Missing required payment fields",
+        latencyMs: Date.now() - startTime,
+      });
       res.status(400).json({ error: "Missing required payment fields" });
       return;
     }
 
     if (!ethers.isAddress(payload.from)) {
-      safeOnPaymentFailed(config, { requestId, error: "Invalid sender address format", latencyMs: Date.now() - startTime });
+      safeOnPaymentFailed(config, {
+        requestId,
+        error: "Invalid sender address format",
+        latencyMs: Date.now() - startTime,
+      });
       res.status(400).json({ error: "Invalid sender address format" });
       return;
     }
 
     // Chain ID verification — reject payments from wrong chain
     if (payload.chainId !== chainId) {
-      safeOnPaymentFailed(config, { requestId, error: `Chain ID mismatch: expected ${chainId}, got ${payload.chainId}`, latencyMs: Date.now() - startTime });
+      safeOnPaymentFailed(config, {
+        requestId,
+        error: `Chain ID mismatch: expected ${chainId}, got ${payload.chainId}`,
+        latencyMs: Date.now() - startTime,
+      });
       res.status(400).json({ error: `Chain ID mismatch: expected ${chainId}, got ${payload.chainId}` });
       return;
     }
@@ -747,36 +767,60 @@ export function fheBatchPaywall(config: FhePaywallConfig): RequestHandler {
       const json = Buffer.from(paymentHeader, "base64").toString("utf-8");
       rawPayload = JSON.parse(json) as Record<string, unknown>;
     } catch {
-      safeOnPaymentFailed(config, { requestId, error: "Invalid Payment header encoding", latencyMs: Date.now() - startTime });
+      safeOnPaymentFailed(config, {
+        requestId,
+        error: "Invalid Payment header encoding",
+        latencyMs: Date.now() - startTime,
+      });
       res.status(400).json({ error: "Invalid Payment header encoding" });
       return;
     }
 
     if (rawPayload.scheme !== FHE_SCHEME) {
-      safeOnPaymentFailed(config, { requestId, error: "Unsupported payment scheme", latencyMs: Date.now() - startTime });
+      safeOnPaymentFailed(config, {
+        requestId,
+        error: "Unsupported payment scheme",
+        latencyMs: Date.now() - startTime,
+      });
       res.status(400).json({ error: "Unsupported payment scheme" });
       return;
     }
     if (!rawPayload.txHash || !rawPayload.nonce || !rawPayload.from) {
-      safeOnPaymentFailed(config, { requestId, error: "Missing required payment fields", latencyMs: Date.now() - startTime });
+      safeOnPaymentFailed(config, {
+        requestId,
+        error: "Missing required payment fields",
+        latencyMs: Date.now() - startTime,
+      });
       res.status(400).json({ error: "Missing required payment fields" });
       return;
     }
 
     if (typeof rawPayload.from === "string" && !ethers.isAddress(rawPayload.from)) {
-      safeOnPaymentFailed(config, { requestId, error: "Invalid sender address format", latencyMs: Date.now() - startTime });
+      safeOnPaymentFailed(config, {
+        requestId,
+        error: "Invalid sender address format",
+        latencyMs: Date.now() - startTime,
+      });
       res.status(400).json({ error: "Invalid sender address format" });
       return;
     }
 
     if (rawPayload.chainId !== chainId) {
-      safeOnPaymentFailed(config, { requestId, error: `Chain ID mismatch: expected ${chainId}, got ${rawPayload.chainId}`, latencyMs: Date.now() - startTime });
+      safeOnPaymentFailed(config, {
+        requestId,
+        error: `Chain ID mismatch: expected ${chainId}, got ${rawPayload.chainId}`,
+        latencyMs: Date.now() - startTime,
+      });
       res.status(400).json({ error: `Chain ID mismatch: expected ${chainId}, got ${rawPayload.chainId}` });
       return;
     }
 
     if (typeof rawPayload.from !== "string" || typeof rawPayload.nonce !== "string") {
-      safeOnPaymentFailed(config, { requestId, error: "Invalid payment payload: from and nonce must be strings", latencyMs: Date.now() - startTime });
+      safeOnPaymentFailed(config, {
+        requestId,
+        error: "Invalid payment payload: from and nonce must be strings",
+        latencyMs: Date.now() - startTime,
+      });
       res.status(400).json({ error: "Invalid payment payload: from and nonce must be strings" });
       return;
     }
@@ -836,7 +880,10 @@ export function fheBatchPaywall(config: FhePaywallConfig): RequestHandler {
             const expiresAt = createdAt + BATCH_CREDIT_TTL_MS;
             const msUntilExpiry = expiresAt - Date.now();
             if (msUntilExpiry < 3_600_000) {
-              res.setHeader("X-Batch-Credits-Expiry-Warning", `Credits expire in ${Math.max(0, Math.floor(msUntilExpiry / 1000))}s`);
+              res.setHeader(
+                "X-Batch-Credits-Expiry-Warning",
+                `Credits expire in ${Math.max(0, Math.floor(msUntilExpiry / 1000))}s`
+              );
             }
           }
           safeOnPaymentVerified(config, {

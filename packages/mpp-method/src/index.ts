@@ -307,7 +307,7 @@ function buildEip712Value(payload: Omit<MppCredential["payload"], "signature">, 
 async function signCredential(
   signer: Signer,
   payload: Omit<MppCredential["payload"], "signature">,
-  challengeId: string,
+  challengeId: string
 ): Promise<string> {
   const domain = getEip712Domain(payload.chainId);
   const value = buildEip712Value(payload, challengeId);
@@ -590,11 +590,7 @@ export class RateLimiter {
 /**
  * Create a payment receipt for the Payment-Receipt header.
  */
-export function createMppReceipt(
-  txHash: string,
-  from?: string,
-  amount?: string,
-): MppReceipt {
+export function createMppReceipt(txHash: string, from?: string, amount?: string): MppReceipt {
   return {
     status: "success",
     method: FHE_SCHEME,
@@ -674,9 +670,7 @@ export function createMppChallenge(config: MarcMppConfig, requestBody?: unknown)
 
   // Feature 2: Digest parameter — SHA-256 hash of the request body
   if (requestBody !== undefined) {
-    challenge.digest = createHash("sha256")
-      .update(JSON.stringify(requestBody))
-      .digest("hex");
+    challenge.digest = createHash("sha256").update(JSON.stringify(requestBody)).digest("hex");
   }
 
   if (config.description) {
@@ -814,7 +808,7 @@ export async function verifyMppCredential(
   /** Optional: the original challenge for binding and expiry validation */
   challenge?: MppChallenge,
   /** Optional: the original request body for digest verification */
-  requestBody?: unknown,
+  requestBody?: unknown
 ): Promise<MppVerifyResult> {
   // Decode credential (try base64url first, then legacy base64)
   let cred: MppCredential;
@@ -879,9 +873,7 @@ export async function verifyMppCredential(
 
     // Feature 2: Validate digest if challenge has one
     if (challenge.digest && requestBody !== undefined) {
-      const expectedDigest = createHash("sha256")
-        .update(JSON.stringify(requestBody))
-        .digest("hex");
+      const expectedDigest = createHash("sha256").update(JSON.stringify(requestBody)).digest("hex");
       if (challenge.digest !== expectedDigest) {
         return { valid: false, error: "Digest mismatch: request body has been tampered with" };
       }
@@ -1013,7 +1005,7 @@ export async function verifyMppCredential(
 export async function handleMpp402(
   response: Response,
   signer: Signer,
-  fhevmInstance: FhevmInstance,
+  fhevmInstance: FhevmInstance
 ): Promise<{ credential: string; txHash: string }> {
   if (response.status !== 402) {
     throw new Error(`Expected 402 response, got ${response.status}`);
@@ -1070,7 +1062,7 @@ export async function handleMpp402(
   const tx = await token.confidentialTransfer(
     requestPayload.recipientAddress,
     encrypted.handles[0],
-    encrypted.inputProof,
+    encrypted.inputProof
   );
   const receipt = await tx.wait();
 
@@ -1177,13 +1169,18 @@ export function mppFhePaywall(config: MarcMppConfig | MppPaywallConfig) {
   const rateLimiter = new RateLimiter();
 
   return async (
-    req: { method: string; headers: Record<string, string | undefined>; ip?: string; connection?: { remoteAddress?: string } },
+    req: {
+      method: string;
+      headers: Record<string, string | undefined>;
+      ip?: string;
+      connection?: { remoteAddress?: string };
+    },
     res: {
       status: (code: number) => any;
       json: (body: unknown) => void;
       setHeader: (key: string, value: string) => void;
     },
-    next: () => void,
+    next: () => void
   ) => {
     // Feature 5: Rate limiting per IP
     const ip = req.ip || req.connection?.remoteAddress || req.headers["x-forwarded-for"] || "unknown";
@@ -1283,9 +1280,7 @@ export function mppFhePaywall(config: MarcMppConfig | MppPaywallConfig) {
     }
 
     // Look up the original challenge for binding validation
-    const originalChallenge = cred.challenge?.id
-      ? activeChallenges.get(cred.challenge.id)
-      : undefined;
+    const originalChallenge = cred.challenge?.id ? activeChallenges.get(cred.challenge.id) : undefined;
 
     // If we have a challenge echo, validate binding and expiry
     if (originalChallenge && isChallengeExpired(originalChallenge)) {
@@ -1341,7 +1336,7 @@ export function mppFhePaywall(config: MarcMppConfig | MppPaywallConfig) {
 export function createMppFetch(
   signer: Signer,
   fhevmInstance: FhevmInstance,
-  options?: { timeoutMs?: number },
+  options?: { timeoutMs?: number }
 ): (url: string | URL, init?: RequestInit) => Promise<Response> {
   const timeoutMs = options?.timeoutMs ?? 30_000;
 

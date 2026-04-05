@@ -67,14 +67,14 @@ async function getFhevmInstance(): Promise<FhevmInstance | null> {
       // Dynamic import via variable to avoid TS module resolution at build time.
       // @zama-fhe/relayer-sdk is a peer dependency — only loaded if installed.
       const moduleName = "@zama-fhe/relayer-sdk";
-      const mod = await import(/* webpackIgnore: true */ moduleName) as {
+      const mod = (await import(/* webpackIgnore: true */ moduleName)) as {
         createInstance: (opts: { gatewayUrl: string; chainId: number }) => Promise<unknown>;
       };
       const gatewayUrl = process.env.FHEVM_GATEWAY_URL || "https://gateway.zama.ai";
-      _fhevmInstance = await mod.createInstance({
+      _fhevmInstance = (await mod.createInstance({
         gatewayUrl,
         chainId: parseInt(process.env.CHAIN_ID || "11155111", 10),
-      }) as FhevmInstance;
+      })) as FhevmInstance;
       return _fhevmInstance;
     } catch {
       // @zama-fhe/relayer-sdk not available — FHE tools will error with clear message
@@ -144,9 +144,7 @@ async function main() {
 
   const rpcUrl = process.env.RPC_URL || chain.rpcUrl;
   if (!rpcUrl) {
-    process.stderr.write(
-      `MARC MCP Server: No RPC URL for chain ${chainId}. Set RPC_URL environment variable.\n`
-    );
+    process.stderr.write(`MARC MCP Server: No RPC URL for chain ${chainId}. Set RPC_URL environment variable.\n`);
     process.exit(1);
   }
 
@@ -179,9 +177,7 @@ async function main() {
         "Wrap USDC into ConfidentialUSDC (cUSDC). Approves the cUSDC contract to spend your USDC, " +
         "then wraps the specified amount. The cUSDC tokens can be used for confidential (FHE-encrypted) transfers.",
       inputSchema: {
-        amount: z
-          .string()
-          .describe('USDC amount to wrap (e.g. "1.50" for 1.50 USDC)'),
+        amount: z.string().describe('USDC amount to wrap (e.g. "1.50" for 1.50 USDC)'),
       },
     },
     async ({ amount }) => {
@@ -206,9 +202,7 @@ async function main() {
         "This is a 2-step async process: (1) submit encrypted amount for decryption via Zama Gateway, " +
         "(2) finalize after Gateway decrypts. This tool performs step 1 only.",
       inputSchema: {
-        amount: z
-          .string()
-          .describe('cUSDC amount to unwrap (e.g. "1.50" for 1.50 cUSDC)'),
+        amount: z.string().describe('cUSDC amount to unwrap (e.g. "1.50" for 1.50 cUSDC)'),
       },
     },
     async ({ amount }) => {
@@ -234,12 +228,8 @@ async function main() {
         "The transfer amount is encrypted on-chain — only sender and recipient can see it. " +
         "Requires cUSDC balance (use wrap_usdc first if needed).",
       inputSchema: {
-        to: z
-          .string()
-          .describe("Recipient Ethereum address (0x...)"),
-        amount: z
-          .string()
-          .describe('USDC amount to transfer (e.g. "1.50" for 1.50 USDC)'),
+        to: z.string().describe("Recipient Ethereum address (0x...)"),
+        amount: z.string().describe('USDC amount to transfer (e.g. "1.50" for 1.50 USDC)'),
       },
     },
     async ({ to, amount }) => {
@@ -265,10 +255,7 @@ async function main() {
         "USDC balance is cleartext. cUSDC balance is FHE-encrypted (returns handle, not amount). " +
         "Defaults to the connected wallet if no address specified.",
       inputSchema: {
-        address: z
-          .string()
-          .optional()
-          .describe("Ethereum address to check (defaults to connected wallet)"),
+        address: z.string().optional().describe("Ethereum address to check (defaults to connected wallet)"),
       },
     },
     async ({ address }) => {
@@ -294,14 +281,8 @@ async function main() {
         "pays the server via cUSDC confidential transfer, records nonce on-chain, " +
         "and retries with payment proof. Returns the API response.",
       inputSchema: {
-        url: z
-          .string()
-          .url()
-          .describe("The x402-protected API URL to access"),
-        method: z
-          .string()
-          .default("GET")
-          .describe('HTTP method (default: "GET")'),
+        url: z.string().url().describe("The x402-protected API URL to access"),
+        method: z.string().default("GET").describe('HTTP method (default: "GET")'),
       },
     },
     async ({ url, method }) => {

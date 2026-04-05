@@ -81,9 +81,7 @@ export const CHAINS: Record<number, ChainConfig> = {
 export function getChainConfig(chainId: number): ChainConfig {
   const config = CHAINS[chainId];
   if (!config) {
-    throw new Error(
-      `Unsupported chainId: ${chainId}. Supported: ${Object.keys(CHAINS).join(", ")}`
-    );
+    throw new Error(`Unsupported chainId: ${chainId}. Supported: ${Object.keys(CHAINS).join(", ")}`);
   }
   return config;
 }

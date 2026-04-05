@@ -71,11 +71,7 @@ export async function confidentialTransfer(
   // Call confidentialTransfer on cUSDC
   const token = new Contract(tokenAddress, TOKEN_ABI, wallet);
 
-  const tx = await token.confidentialTransfer(
-    to,
-    encrypted.handles[0],
-    encrypted.inputProof
-  );
+  const tx = await token.confidentialTransfer(to, encrypted.handles[0], encrypted.inputProof);
   const receipt = await tx.wait();
 
   if (!receipt || receipt.status === 0) {

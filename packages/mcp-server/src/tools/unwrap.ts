@@ -62,12 +62,7 @@ export async function unwrapCusdc(
   const token = new Contract(tokenAddress, TOKEN_ABI, wallet);
 
   // Call unwrap — initiates async decryption via Zama Gateway
-  const tx = await token.unwrap(
-    walletAddress,
-    walletAddress,
-    encrypted.handles[0],
-    encrypted.inputProof
-  );
+  const tx = await token.unwrap(walletAddress, walletAddress, encrypted.handles[0], encrypted.inputProof);
   const receipt = await tx.wait();
 
   if (!receipt || receipt.status === 0) {

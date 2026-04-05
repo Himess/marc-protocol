@@ -14,11 +14,7 @@ import type { ChainConfig } from "../config.js";
  *
  * @returns Tool result text with balance information
  */
-export async function getBalance(
-  wallet: Wallet,
-  chain: ChainConfig,
-  address?: string
-): Promise<string> {
+export async function getBalance(wallet: Wallet, chain: ChainConfig, address?: string): Promise<string> {
   const targetAddress = address || (await wallet.getAddress());
 
   if (!isAddress(targetAddress)) {

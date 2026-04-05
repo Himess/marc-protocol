@@ -63,11 +63,7 @@ import {
   encodePaymentHeader,
 } from "../src/index.js";
 
-import type {
-  FhePaymentRequired,
-  FhePaymentPayload,
-  FhePaywallConfig,
-} from "../src/index.js";
+import type { FhePaymentRequired, FhePaymentPayload, FhePaywallConfig } from "../src/index.js";
 
 // ---------------------------------------------------------------------------
 // Mock FhevmInstance
@@ -212,11 +208,7 @@ describe("FHE_CONFIDENTIAL_SCHEME", () => {
     const fhevmInstance = createMockFhevmInstance();
     const challenge = makeChallenge();
 
-    const result = await FHE_CONFIDENTIAL_SCHEME.createPayment(
-      challenge,
-      mockSigner as any,
-      fhevmInstance,
-    );
+    const result = await FHE_CONFIDENTIAL_SCHEME.createPayment(challenge, mockSigner as any, fhevmInstance);
 
     expect(result.txHash).toBe(txHash);
     expect(result.verifierTxHash).toBe(vTxHash);
@@ -246,7 +238,7 @@ describe("FHE_CONFIDENTIAL_SCHEME", () => {
     };
 
     await expect(
-      FHE_CONFIDENTIAL_SCHEME.createPayment(challenge, {} as any, createMockFhevmInstance()),
+      FHE_CONFIDENTIAL_SCHEME.createPayment(challenge, {} as any, createMockFhevmInstance())
     ).rejects.toThrow("No fhe-confidential-v1 requirement in challenge");
   });
 
@@ -262,7 +254,7 @@ describe("FHE_CONFIDENTIAL_SCHEME", () => {
     };
 
     await expect(
-      FHE_CONFIDENTIAL_SCHEME.createPayment(makeChallenge(), mockSigner as any, createMockFhevmInstance()),
+      FHE_CONFIDENTIAL_SCHEME.createPayment(makeChallenge(), mockSigner as any, createMockFhevmInstance())
     ).rejects.toThrow("Payment transaction failed");
   });
 
