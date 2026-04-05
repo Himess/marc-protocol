@@ -64,10 +64,10 @@ jobs:
           node-version: "20"
           cache: "npm"
       - run: npm ci --legacy-peer-deps
-      - name: Patch hardhat-plugin version check (0.4.0 → 0.4.2)
+      - name: Patch hardhat-plugin version check
         run: |
           find node_modules/@fhevm/hardhat-plugin -name "constants.ts" -o -name "constants.js" | while read f; do
-            sed -i 's/version: "0\.4\.0"/version: "0.4.2"/' "$f"
+            sed -i 's/version: "0\.4\.[0-9]*"/version: "0.4.2"/' "$f"
             echo "Patched: $f"
           done
       - run: npx hardhat test
