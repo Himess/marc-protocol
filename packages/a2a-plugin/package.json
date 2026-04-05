@@ -1,0 +1,28 @@
+{
+  "name": "@marc-protocol/a2a-plugin",
+  "version": "1.0.0",
+  "description": "MARC Protocol FHE payment capabilities for Google A2A agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "ethers": "^6.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.1",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "license": "BUSL-1.1"
+}

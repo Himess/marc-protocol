@@ -1,0 +1,30 @@
+{
+  "name": "@marc-protocol/eliza-plugin",
+  "version": "1.0.0",
+  "description": "MARC Protocol FHE payment plugin for ElizaOS agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "ethers": "^6.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.1",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "license": "BUSL-1.1"
+}
