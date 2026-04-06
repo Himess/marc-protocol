@@ -118,38 +118,47 @@ export async function payX402(
     throw new Error("FHE encryption returned no handles");
   }
 
-  // Step 5: Call cUSDC.confidentialTransfer()
-  const token = new Contract(requirement.tokenAddress, TOKEN_ABI, wallet);
-
-  const transferTx = await token.confidentialTransfer(
-    requirement.recipientAddress,
-    encrypted.handles[0],
-    encrypted.inputProof
-  );
-  const transferReceipt = await transferTx.wait();
-
-  if (!transferReceipt || transferReceipt.status === 0) {
-    throw new Error(`Payment transfer failed: ${transferTx.hash}`);
-  }
-
-  // Step 6: Call verifier.recordPayment()
+  // Step 5: Single-TX payment via verifier.payAndRecord() (Zama operator pattern)
+  // Requires agent to have set verifier as operator:
+  //   cUSDC.setOperator(verifierAddress, type(uint48).max)
   const verifier = new Contract(requirement.verifierAddress, VERIFIER_ABI, wallet);
 
-  const verifierTx = await verifier.recordPayment(requirement.recipientAddress, nonce, amount);
-  const verifierReceipt = await verifierTx.wait();
-
-  if (!verifierReceipt || verifierReceipt.status === 0) {
-    throw new Error(
-      `Verifier recordPayment failed: ${verifierTx.hash}. ` +
-        `Transfer TX succeeded: ${transferTx.hash} — funds may need manual recovery.`
+  let payTx;
+  try {
+    payTx = await verifier.payAndRecord(
+      requirement.tokenAddress,
+      requirement.recipientAddress,
+      nonce,
+      amount,
+      encrypted.handles[0],
+      encrypted.inputProof
     );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (
+      msg.includes("UnauthorizedSpender") ||
+      msg.includes("operator") ||
+      msg.includes("ERC7984") ||
+      msg.includes("not authorized") ||
+      msg.includes("approval")
+    ) {
+      throw new Error(
+        "Single-TX payment requires operator approval. Call cUSDC.setOperator(verifierAddress, type(uint48).max) first."
+      );
+    }
+    throw new Error(`Single-TX payment failed: ${msg}`);
+  }
+  const payReceipt = await payTx.wait();
+
+  if (!payReceipt || payReceipt.status === 0) {
+    throw new Error(`Payment transaction reverted: ${payTx.hash}`);
   }
 
-  // Step 7: Build payment header and retry
+  // Step 6: Build payment header and retry
   const payloadData = {
     scheme: FHE_SCHEME,
-    txHash: transferTx.hash,
-    verifierTxHash: verifierTx.hash,
+    txHash: payTx.hash,
+    verifierTxHash: "", // empty for single-TX (nonce recorded in same tx)
     nonce,
     from: signerAddress,
     chainId: requirement.chainId,
@@ -166,7 +175,7 @@ export async function payX402(
   const payload = { ...payloadData, signature };
   const paymentHeader = Buffer.from(JSON.stringify(payload)).toString("base64");
 
-  // Step 8: Retry with Payment header
+  // Step 7: Retry with Payment header
   const retryResponse = await fetchWithTimeout(
     url,
     {
@@ -180,14 +189,13 @@ export async function payX402(
   const formattedPrice = (Number(amount) / 1_000_000).toFixed(6);
 
   return [
-    `x402 payment completed`,
+    `x402 payment completed (single-TX)`,
     "",
     `URL: ${url}`,
     `Price: ${formattedPrice} USDC`,
     `Recipient: ${requirement.recipientAddress}`,
     "",
-    `Transfer TX: ${chain.explorerUrl}/tx/${transferTx.hash}`,
-    `Verifier TX: ${chain.explorerUrl}/tx/${verifierTx.hash}`,
+    `Payment TX: ${chain.explorerUrl}/tx/${payTx.hash}`,
     `Nonce: ${nonce}`,
     `From: ${signerAddress}`,
     "",

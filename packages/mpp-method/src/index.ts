@@ -209,8 +209,10 @@ const TOKEN_ABI = [
 
 const VERIFIER_ABI = [
   "function recordPayment(address server, bytes32 nonce, uint64 minPrice) external",
+  "function payAndRecord(address token, address server, bytes32 nonce, uint64 minPrice, bytes32 encryptedAmount, bytes calldata inputProof) external",
   "function usedNonces(bytes32 nonce) external view returns (bool)",
   "event PaymentVerified(address indexed payer, address indexed server, bytes32 indexed nonce, uint64 minPrice)",
+  "event PayAndRecordCompleted(address indexed payer, address indexed server, bytes32 indexed nonce, address token, uint64 minPrice)",
 ];
 
 // ============================================================================
@@ -919,8 +921,9 @@ export async function verifyMppCredential(
       return { valid: false, error: "ConfidentialTransfer event not found or mismatched" };
     }
 
-    // Verify PaymentVerified event (if dual-TX flow)
+    // Verify nonce event — dual-TX (PaymentVerified) or single-TX (PayAndRecordCompleted)
     if (payload.verifierTxHash) {
+      // Dual-TX flow: PaymentVerified in separate verifier transaction
       const vReceipt = await provider.getTransactionReceipt(payload.verifierTxHash);
       if (!vReceipt || vReceipt.status === 0) {
         return { valid: false, error: "Verifier transaction failed or not found" };
@@ -957,6 +960,45 @@ export async function verifyMppCredential(
 
       if (!nonceVerified) {
         return { valid: false, error: "PaymentVerified event not found or mismatched" };
+      }
+    } else {
+      // Single-TX flow: PayAndRecordCompleted in same receipt as ConfidentialTransfer
+      const payAndRecordIface = new ethers.Interface(VERIFIER_ABI);
+      let singleTxVerified = false;
+      const requiredAmount = BigInt(config.amount);
+
+      for (const log of receipt.logs) {
+        if (log.address.toLowerCase() !== config.verifierAddress.toLowerCase()) continue;
+        try {
+          const parsed = payAndRecordIface.parseLog({ topics: log.topics as string[], data: log.data });
+          if (
+            parsed?.name === "PayAndRecordCompleted" &&
+            parsed.args[0].toLowerCase() === payload.from.toLowerCase() &&
+            parsed.args[1].toLowerCase() === config.recipientAddress.toLowerCase() &&
+            parsed.args[2] === payload.nonce
+          ) {
+            // Verify token address matches
+            if (parsed.args[3].toLowerCase() !== config.tokenAddress.toLowerCase()) {
+              continue;
+            }
+            // Verify minPrice >= required amount
+            const eventMinPrice = BigInt(parsed.args[4]);
+            if (eventMinPrice < requiredAmount) {
+              return {
+                valid: false,
+                error: `Insufficient payment: committed ${eventMinPrice}, required ${requiredAmount}`,
+              };
+            }
+            singleTxVerified = true;
+            break;
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      if (!singleTxVerified) {
+        return { valid: false, error: "PayAndRecordCompleted event not found or mismatched" };
       }
     }
 
@@ -1005,7 +1047,8 @@ export async function verifyMppCredential(
 export async function handleMpp402(
   response: Response,
   signer: Signer,
-  fhevmInstance: FhevmInstance
+  fhevmInstance: FhevmInstance,
+  options?: { preferSingleTx?: boolean }
 ): Promise<{ credential: string; txHash: string }> {
   if (response.status !== 402) {
     throw new Error(`Expected 402 response, got ${response.status}`);
@@ -1057,33 +1100,83 @@ export async function handleMpp402(
     throw new Error("FHE encryption returned no handles");
   }
 
-  // Step 1: confidentialTransfer
-  const token = new Contract(requestPayload.tokenAddress, TOKEN_ABI, signer);
-  const tx = await token.confidentialTransfer(
-    requestPayload.recipientAddress,
-    encrypted.handles[0],
-    encrypted.inputProof
-  );
-  const receipt = await tx.wait();
+  // Default to single-TX (payAndRecord) — Zama's recommended operator pattern.
+  // Set preferSingleTx=false explicitly to use the legacy 2-TX flow.
+  const useSingleTx = options?.preferSingleTx !== false;
 
-  if (!receipt || receipt.status === 0) {
-    throw new Error(`Payment transaction failed: ${tx.hash}`);
-  }
+  let txHash: string;
+  let verifierTxHash: string;
 
-  // Step 2: recordPayment
-  const verifier = new Contract(requestPayload.verifierAddress, VERIFIER_ABI, signer);
-  const vTx = await verifier.recordPayment(requestPayload.recipientAddress, nonce, amount);
-  const vReceipt = await vTx.wait();
+  if (useSingleTx) {
+    // Single-TX: verifier.payAndRecord() — does confidentialTransferFrom + recordPayment
+    // Requires agent to have set verifier as operator:
+    //   cUSDC.setOperator(verifierAddress, type(uint48).max)
+    const verifier = new Contract(requestPayload.verifierAddress, VERIFIER_ABI, signer);
 
-  if (!vReceipt || vReceipt.status === 0) {
-    throw new Error(`Verifier recordPayment failed. Transfer succeeded: ${tx.hash}`);
+    let tx;
+    try {
+      tx = await verifier.payAndRecord(
+        requestPayload.tokenAddress,
+        requestPayload.recipientAddress,
+        nonce,
+        amount,
+        encrypted.handles[0],
+        encrypted.inputProof
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (
+        msg.includes("UnauthorizedSpender") ||
+        msg.includes("operator") ||
+        msg.includes("ERC7984") ||
+        msg.includes("not authorized") ||
+        msg.includes("approval")
+      ) {
+        throw new Error(
+          "Single-TX payment requires operator approval. Call cUSDC.setOperator(verifierAddress, type(uint48).max) first."
+        );
+      }
+      throw new Error(`Single-TX payment failed: ${msg}`);
+    }
+    const receipt = await tx.wait();
+
+    if (!receipt || receipt.status === 0) {
+      throw new Error(`Single-TX payment transaction reverted: ${tx.hash}`);
+    }
+
+    txHash = tx.hash;
+    verifierTxHash = ""; // empty for single-TX (nonce recorded in same tx)
+  } else {
+    // Legacy 2-TX flow: confidentialTransfer + recordPayment
+    const token = new Contract(requestPayload.tokenAddress, TOKEN_ABI, signer);
+    const tx = await token.confidentialTransfer(
+      requestPayload.recipientAddress,
+      encrypted.handles[0],
+      encrypted.inputProof
+    );
+    const receipt = await tx.wait();
+
+    if (!receipt || receipt.status === 0) {
+      throw new Error(`Payment transaction failed: ${tx.hash}`);
+    }
+
+    const verifier = new Contract(requestPayload.verifierAddress, VERIFIER_ABI, signer);
+    const vTx = await verifier.recordPayment(requestPayload.recipientAddress, nonce, amount);
+    const vReceipt = await vTx.wait();
+
+    if (!vReceipt || vReceipt.status === 0) {
+      throw new Error(`Verifier recordPayment failed. Transfer succeeded: ${tx.hash}`);
+    }
+
+    txHash = tx.hash;
+    verifierTxHash = vTx.hash;
   }
 
   // Build credential with challenge binding
   const payloadData: Omit<MppCredential["payload"], "signature"> = {
     scheme: FHE_SCHEME,
-    txHash: tx.hash,
-    verifierTxHash: vTx.hash,
+    txHash,
+    verifierTxHash,
     nonce,
     from: signerAddress,
     chainId,
@@ -1108,7 +1201,7 @@ export async function handleMpp402(
 
   return {
     credential: base64UrlEncode(cred),
-    txHash: tx.hash,
+    txHash,
   };
 }
 

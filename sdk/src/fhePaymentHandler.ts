@@ -201,17 +201,15 @@ export class FhePaymentHandler {
   }
 
   /**
-   * V4.2 — Single-TX payment via verifier.payAndRecord().
+   * V4.2 — Single-TX payment via verifier.payAndRecord() (DEFAULT).
    * Transfers cUSDC to server and records nonce in one transaction.
    * Requires the agent to have set the verifier as an operator on the token:
    *   cUSDC.setOperator(verifierAddress, type(uint48).max)
    *
-   * WARNING: This method does NOT work with real FHE on Sepolia/mainnet.
-   * FHE input proofs are bound to msg.sender. When the verifier contract
-   * calls confidentialTransferFrom(), msg.sender is the verifier (not the
-   * agent who created the proof), causing the FHE VM to reject the proof.
-   * Use createPayment() (2-TX flow) instead for production deployments.
-   * This method is kept for local Hardhat testing where FHE is mocked.
+   * This follows Zama's recommended operator pattern for single-TX flows.
+   * The agent grants operator approval once, then all payments are atomic.
+   * Use createPayment() (2-TX flow) as a fallback if operator approval
+   * is not set up.
    */
   async createSingleTxPayment(requirements: FhePaymentRequirements): Promise<FhePaymentResult> {
     const signerAddress = await this.signer.getAddress();
@@ -300,7 +298,10 @@ export class FhePaymentHandler {
     const requirement = this.selectRequirement(paymentRequired.accepts);
     if (!requirement) return null;
 
-    if (options?.preferSingleTx) {
+    // Default to single-TX (payAndRecord) — Zama's recommended operator pattern.
+    // Set preferSingleTx=false explicitly to use the legacy 2-TX flow.
+    const useSingleTx = options?.preferSingleTx !== false;
+    if (useSingleTx) {
       return this.createSingleTxPayment(requirement);
     }
     return this.createPayment(requirement);

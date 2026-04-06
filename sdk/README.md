@@ -85,7 +85,7 @@ x402-aware fetch. Automatically handles 402 responses by encrypting payment via 
 | `timeoutMs` | `number` | `30000` | HTTP request timeout (ms) |
 | `maxRetries` | `number` | `0` | Retry attempts after payment |
 | `retryDelayMs` | `number` | `1000` | Base delay between retries (exponential backoff) |
-| `preferSingleTx` | `boolean` | `false` | Attempt single-TX flow (may fail due to proof binding) |
+| `preferSingleTx` | `boolean` | `true` | Use single-TX flow via payAndRecord() (Zama operator pattern). Set to `false` for legacy 2-TX flow. |
 
 ### `createFheFetch(options): (url, init?) => Promise<Response>`
 

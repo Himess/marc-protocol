@@ -130,7 +130,8 @@ export interface FheFetchOptions extends RequestInit {
   maxRetries?: number;
   /** Base delay between retries in ms, with linear backoff (default: 1000) */
   retryDelayMs?: number;
-  /** V4.2: Use single-TX payment via verifier.payAndRecord() instead of dual-TX (default: false) */
+  /** V4.2: Use single-TX payment via verifier.payAndRecord() instead of dual-TX (default: true).
+   *  Set to false to use the legacy 2-TX flow (confidentialTransfer + recordPayment). */
   preferSingleTx?: boolean;
 }
 
