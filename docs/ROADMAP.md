@@ -6,8 +6,9 @@ Initial public release.
 
 - **7 contracts:** ConfidentialUSDC (ERC-7984), X402PaymentVerifier, AgenticCommerceProtocol (ERC-8183), AgentIdentityRegistry (ERC-8004), AgentReputationRegistry (ERC-8004), MARCTimelock, MockUSDC
 - **SDK:** marc-protocol-sdk on npm -- fheFetch, fhePaywall, facilitator server, ERC-8004/8183 helpers, Redis nonce and batch credit stores
-- **6 framework plugins:** x402 Scheme, MCP Server, MPP Method, AgentKit Plugin, Virtuals GAME Plugin, OpenClaw Skill
-- **Infrastructure:** Deployed on Ethereum Sepolia, 900+ tests, GitHub Actions CI/CD, The Graph subgraph
+- **10 framework plugins:** x402 Scheme, MCP Server, MPP Method, AgentKit Plugin, Virtuals GAME Plugin, OpenClaw Skill, A2A Plugin (Google), ElizaOS Plugin, LangChain Tool, CrewAI Tool
+- **Single TX default:** Follows Zama's operator pattern (payAndRecord) for atomic payments
+- **Infrastructure:** Deployed on Ethereum Sepolia, 1100+ tests, GitHub Actions CI/CD, The Graph subgraph
 - **Security:** Ownable2Step, ReentrancyGuard, Pausable, 48h governance timelock, nonce replay prevention, per-IP rate limiting, EIP-191 signature verification
 
 ## v1.1 (Next)
@@ -21,16 +22,18 @@ Ethereum mainnet deployment and production hardening.
 - Gas benchmark report (wrap/transfer/unwrap/escrow costs)
 - Formal verification (Certora or Halmos)
 - Bug bounty program
+- Provider budget verification via FHE.allow (provider can decrypt job budget after accepting, third parties still cannot see)
 
 ## v1.2
 
-Multi-chain expansion across EVM L2s.
+Multi-chain expansion and advanced features.
 
 - **Base deployment** -- #1 chain for x402 volume (Coinbase ecosystem)
 - **Arbitrum deployment** -- Largest L2 by TVL
 - Multi-token factory (cWETH, cDAI confidential wrappers)
 - Facilitator network (decentralized verification service)
-- LangChain / CrewAI / AutoGPT agent framework integrations
+- Encrypted agent-to-agent messaging via ECDH (agents derive shared secret from ERC-8004 public keys, negotiate job pricing off-chain with end-to-end encryption)
+- Configurable fee rates via governance (setFee with MARCTimelock delay)
 
 ## v2.0
 
@@ -38,4 +41,5 @@ Multi-VM expansion beyond EVM.
 
 - **Solana (SVM) deployment** -- Largest non-EVM agent ecosystem (Zama roadmap)
 - Cross-VM confidential transfers
+- Encrypted agent messaging across chains
 - Wherever Zama deploys FHE, MARC follows

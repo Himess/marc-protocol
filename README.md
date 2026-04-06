@@ -23,18 +23,18 @@ MARC Protocol encrypts what matters: **amounts and balances are FHE-encrypted**,
 
 Zama's fhEVM is **not limited to EVM**. Zama is expanding to Solana (SVM) and other virtual machines. MARC Protocol follows wherever Zama deploys.
 
-| Chain / VM | Status | Impact |
-|------------|--------|--------|
-| **Ethereum** | Live (Sepolia) | Largest DeFi TVL, highest security |
-| **Base** | Planned | #1 in x402 volume (Coinbase ecosystem) |
-| **Arbitrum** | Planned | Largest L2 by TVL |
-| **Polygon** | Planned | Enterprise + gaming agents |
-| **Solana (SVM)** | Planned (Zama roadmap) | Largest non-EVM agent ecosystem |
-| **Any future VM** | Automatic | Wherever Zama deploys, MARC follows |
+| Chain / VM        | Status                 | Impact                                 |
+| ----------------- | ---------------------- | -------------------------------------- |
+| **Ethereum**      | Live (Sepolia)         | Largest DeFi TVL, highest security     |
+| **Base**          | Planned                | #1 in x402 volume (Coinbase ecosystem) |
+| **Arbitrum**      | Planned                | Largest L2 by TVL                      |
+| **Polygon**       | Planned                | Enterprise + gaming agents             |
+| **Solana (SVM)**  | Planned (Zama roadmap) | Largest non-EVM agent ecosystem        |
+| **Any future VM** | Automatic              | Wherever Zama deploys, MARC follows    |
 
 When Zama deploys to Base, Arbitrum, Solana, and beyond, **agents on every major chain can make confidential payments through MARC Protocol.** One protocol, every chain, every VM, full privacy.
 
-> *"Crypto privacy is needed if you want to make API calls without compromising the information of your access patterns. Even with a local AI agent, you can learn a lot about what someone is doing if you see all of their search engine calls. [...] providers will demand an anti-DoS mechanism, and realistically payment per call. By default that will be credit card or some corposlop stablecoin thing, so we need crypto privacy."*
+> _"Crypto privacy is needed if you want to make API calls without compromising the information of your access patterns. Even with a local AI agent, you can learn a lot about what someone is doing if you see all of their search engine calls. [...] providers will demand an anti-DoS mechanism, and realistically payment per call. By default that will be credit card or some corposlop stablecoin thing, so we need crypto privacy."_
 >
 > -- [Vitalik Buterin, March 2026](https://x.com/VitalikButerin/status/2030510783134871594)
 
@@ -85,10 +85,10 @@ The same encrypted cUSDC transfers work identically when triggered by MCP tool c
 
 **Two contracts, no pool:**
 
-| Contract | Purpose |
-|----------|---------|
-| **ConfidentialUSDC** | ERC-7984 token wrapper. USDC wraps to encrypted cUSDC. Agents hold cUSDC directly and transfer it peer-to-peer. |
-| **X402PaymentVerifier** | Thin nonce registry. Records payment nonces with `minPrice` for server-side price verification. |
+| Contract                | Purpose                                                                                                         |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **ConfidentialUSDC**    | ERC-7984 token wrapper. USDC wraps to encrypted cUSDC. Agents hold cUSDC directly and transfer it peer-to-peer. |
+| **X402PaymentVerifier** | Thin nonce registry. Records payment nonces with `minPrice` for server-side price verification.                 |
 
 ## Features
 
@@ -133,73 +133,73 @@ cd frontend && npm install && npx vite build
 
 Inherits: `ZamaEthereumConfig`, `ERC7984`, `ERC7984ERC20Wrapper`, `Ownable2Step`, `Pausable`, `ReentrancyGuard`
 
-| Function | Description |
-|----------|-------------|
-| `wrap(address to, uint256 amount)` | Wrap plaintext USDC into encrypted cUSDC (fee deducted) |
-| `unwrap(address from, address to, bytes32 encAmount, bytes inputProof)` | Request async unwrap (step 1: burn + KMS decrypt request) |
-| `finalizeUnwrap(bytes32 burntAmount, uint64 cleartext, bytes proof)` | Finalize unwrap with KMS proof (step 2: fee deducted, USDC sent) |
-| `confidentialTransfer(address to, bytes32 encAmount, bytes inputProof)` | Transfer encrypted cUSDC peer-to-peer (fee-free) |
-| `confidentialBalanceOf(address account)` | Get encrypted balance handle (euint64) |
-| `setOperator(address operator, uint48 until)` | Authorize operator for transfers |
-| `isOperator(address holder, address spender)` | Check operator authorization |
-| `setTreasury(address newTreasury)` | Update fee treasury (onlyOwner) |
-| `treasuryWithdraw()` | Withdraw accumulated fees to treasury |
-| `pause() / unpause()` | Emergency pause (onlyOwner) |
-| `transferOwnership(address) / acceptOwnership()` | 2-step ownership transfer |
+| Function                                                                | Description                                                      |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `wrap(address to, uint256 amount)`                                      | Wrap plaintext USDC into encrypted cUSDC (fee deducted)          |
+| `unwrap(address from, address to, bytes32 encAmount, bytes inputProof)` | Request async unwrap (step 1: burn + KMS decrypt request)        |
+| `finalizeUnwrap(bytes32 burntAmount, uint64 cleartext, bytes proof)`    | Finalize unwrap with KMS proof (step 2: fee deducted, USDC sent) |
+| `confidentialTransfer(address to, bytes32 encAmount, bytes inputProof)` | Transfer encrypted cUSDC peer-to-peer (fee-free)                 |
+| `confidentialBalanceOf(address account)`                                | Get encrypted balance handle (euint64)                           |
+| `setOperator(address operator, uint48 until)`                           | Authorize operator for transfers                                 |
+| `isOperator(address holder, address spender)`                           | Check operator authorization                                     |
+| `setTreasury(address newTreasury)`                                      | Update fee treasury (onlyOwner)                                  |
+| `treasuryWithdraw()`                                                    | Withdraw accumulated fees to treasury                            |
+| `pause() / unpause()`                                                   | Emergency pause (onlyOwner)                                      |
+| `transferOwnership(address) / acceptOwnership()`                        | 2-step ownership transfer                                        |
 
 **Events:**
 
-| Event | When |
-|-------|------|
-| `ConfidentialTransfer(from, to, amount)` | Every encrypted transfer (including wrap mint) |
-| `UnwrapRequested(receiver, amount)` | Unwrap initiated |
-| `UnwrapFinalized(receiver, encAmount, clearAmount)` | Unwrap completed |
-| `TreasuryUpdated(old, new)` | Treasury address changed |
-| `TreasuryWithdrawn(treasury, amount)` | Fees withdrawn |
+| Event                                               | When                                           |
+| --------------------------------------------------- | ---------------------------------------------- |
+| `ConfidentialTransfer(from, to, amount)`            | Every encrypted transfer (including wrap mint) |
+| `UnwrapRequested(receiver, amount)`                 | Unwrap initiated                               |
+| `UnwrapFinalized(receiver, encAmount, clearAmount)` | Unwrap completed                               |
+| `TreasuryUpdated(old, new)`                         | Treasury address changed                       |
+| `TreasuryWithdrawn(treasury, amount)`               | Fees withdrawn                                 |
 
 ### X402PaymentVerifier
 
-| Function | Description |
-|----------|-------------|
+| Function                                                                       | Description                                        |
+| ------------------------------------------------------------------------------ | -------------------------------------------------- |
 | `recordPayment(address payer, address server, bytes32 nonce, uint64 minPrice)` | Record payment nonce with minimum price commitment |
-| `usedNonces(bytes32 nonce)` | Check if nonce has been used |
+| `usedNonces(bytes32 nonce)`                                                    | Check if nonce has been used                       |
 
 **Events:**
 
-| Event | When |
-|-------|------|
+| Event                                             | When                   |
+| ------------------------------------------------- | ---------------------- |
 | `PaymentVerified(payer, server, nonce, minPrice)` | Payment nonce recorded |
 
 ## Deployed Addresses (Sepolia)
 
-| Contract | Address |
-|----------|---------|
-| MockUSDC | [`0xc89e913676B034f8b38E49f7508803d1cDEC9F4f`](https://sepolia.etherscan.io/address/0xc89e913676B034f8b38E49f7508803d1cDEC9F4f) |
-| ConfidentialUSDC | [`0xE944754aa70d4924dc5d8E57774CDf21Df5e592D`](https://sepolia.etherscan.io/address/0xE944754aa70d4924dc5d8E57774CDf21Df5e592D) |
-| X402PaymentVerifier | [`0x4503A7aee235aBD10e6064BBa8E14235fdF041f4`](https://sepolia.etherscan.io/address/0x4503A7aee235aBD10e6064BBa8E14235fdF041f4) |
+| Contract                | Address                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| MockUSDC                | [`0xc89e913676B034f8b38E49f7508803d1cDEC9F4f`](https://sepolia.etherscan.io/address/0xc89e913676B034f8b38E49f7508803d1cDEC9F4f) |
+| ConfidentialUSDC        | [`0xE944754aa70d4924dc5d8E57774CDf21Df5e592D`](https://sepolia.etherscan.io/address/0xE944754aa70d4924dc5d8E57774CDf21Df5e592D) |
+| X402PaymentVerifier     | [`0x4503A7aee235aBD10e6064BBa8E14235fdF041f4`](https://sepolia.etherscan.io/address/0x4503A7aee235aBD10e6064BBa8E14235fdF041f4) |
 | AgenticCommerceProtocol | [`0xBCA8d5ce6D57f36c7aF71954e9F7f86773a02F22`](https://sepolia.etherscan.io/address/0xBCA8d5ce6D57f36c7aF71954e9F7f86773a02F22) |
-| AgentIdentityRegistry | [`0xf4609D5DB3153717827703C795acb00867b69567`](https://sepolia.etherscan.io/address/0xf4609D5DB3153717827703C795acb00867b69567) |
+| AgentIdentityRegistry   | [`0xf4609D5DB3153717827703C795acb00867b69567`](https://sepolia.etherscan.io/address/0xf4609D5DB3153717827703C795acb00867b69567) |
 | AgentReputationRegistry | [`0xd1Dd10990f317802c79077834c75742388959668`](https://sepolia.etherscan.io/address/0xd1Dd10990f317802c79077834c75742388959668) |
-| Treasury | `0xF505e2E71df58D7244189072008f25f6b6aaE5ae` |
+| Treasury                | `0xF505e2E71df58D7244189072008f25f6b6aaE5ae`                                                                                    |
 
 All contracts verified on [Etherscan](https://sepolia.etherscan.io).
 
 ## Fee Structure
 
-| Operation | Fee | Notes |
-|-----------|-----|-------|
-| **Wrap** (USDC to cUSDC) | max(0.1%, 0.01 USDC) | Plaintext fee deducted before minting |
-| **Transfer** (cUSDC to cUSDC) | **FREE** | Encrypted peer-to-peer, no fee |
-| **Unwrap** (cUSDC to USDC) | max(0.1%, 0.01 USDC) | Fee deducted from decrypted cleartext |
+| Operation                     | Fee                  | Notes                                 |
+| ----------------------------- | -------------------- | ------------------------------------- |
+| **Wrap** (USDC to cUSDC)      | max(0.1%, 0.01 USDC) | Plaintext fee deducted before minting |
+| **Transfer** (cUSDC to cUSDC) | **FREE**             | Encrypted peer-to-peer, no fee        |
+| **Unwrap** (cUSDC to USDC)    | max(0.1%, 0.01 USDC) | Fee deducted from decrypted cleartext |
 
 **Breakeven:** 10 USDC (below: flat 0.01 USDC fee; above: 0.1% scales with amount).
 
-| Amount | Wrap Fee | Transfer Fee | Unwrap Fee |
-|--------|----------|--------------|------------|
-| 1 USDC | 0.01 | 0 | 0.01 |
-| 10 USDC | 0.01 | 0 | 0.01 |
-| 100 USDC | 0.10 | 0 | 0.10 |
-| 1000 USDC | 1.00 | 0 | 1.00 |
+| Amount    | Wrap Fee | Transfer Fee | Unwrap Fee |
+| --------- | -------- | ------------ | ---------- |
+| 1 USDC    | 0.01     | 0            | 0.01       |
+| 10 USDC   | 0.01     | 0            | 0.01       |
+| 100 USDC  | 0.10     | 0            | 0.10       |
+| 1000 USDC | 1.00     | 0            | 1.00       |
 
 ## SDK Usage
 
@@ -256,15 +256,18 @@ import express from "express";
 
 const app = express();
 
-app.use("/api/premium", fhePaywall({
-  price: "1000000",        // 1 USDC (6 decimals)
-  asset: "USDC",
-  tokenAddress: "0xE944754aa70d4924dc5d8E57774CDf21Df5e592D",
-  verifierAddress: "0x4503A7aee235aBD10e6064BBa8E14235fdF041f4",
-  recipientAddress: "0x...",
-  rpcUrl: "https://sepolia.infura.io/v3/...",
-  minConfirmations: 1,
-}));
+app.use(
+  "/api/premium",
+  fhePaywall({
+    price: "1000000", // 1 USDC (6 decimals)
+    asset: "USDC",
+    tokenAddress: "0xE944754aa70d4924dc5d8E57774CDf21Df5e592D",
+    verifierAddress: "0x4503A7aee235aBD10e6064BBa8E14235fdF041f4",
+    recipientAddress: "0x...",
+    rpcUrl: "https://sepolia.infura.io/v3/...",
+    minConfirmations: 1,
+  })
+);
 
 app.get("/api/premium/data", (req, res) => {
   res.json({ data: "premium content", paidBy: req.paymentInfo?.from });
@@ -491,10 +494,10 @@ marc-protocol/
 
 ### Two Unbypassable Fee Streams
 
-| Stream | Rate | Trigger | Enforcement |
-|--------|------|---------|-------------|
-| **Wrap/Unwrap Fee** | 0.1% (min $0.01) | USDC enters/exits encrypted layer | Contract-level (`accumulatedFees → treasury`) |
-| **ERC-8183 Job Escrow** | 1% platform fee | Job completion | Contract-level (`PLATFORM_FEE_BPS = 100`) |
+| Stream                  | Rate             | Trigger                           | Enforcement                                   |
+| ----------------------- | ---------------- | --------------------------------- | --------------------------------------------- |
+| **Wrap/Unwrap Fee**     | 0.1% (min $0.01) | USDC enters/exits encrypted layer | Contract-level (`accumulatedFees → treasury`) |
+| **ERC-8183 Job Escrow** | 1% platform fee  | Job completion                    | Contract-level (`PLATFORM_FEE_BPS = 100`)     |
 
 **ERC-8183 Job Escrow, Primary Revenue:**
 Agent creates job, funds locked in escrow, work delivered, evaluator approves. **99% to provider, 1% to protocol**. The 1% fee is enforced at the contract level, mathematically unbypassable.
@@ -503,13 +506,13 @@ Agent creates job, funds locked in escrow, work delivered, evaluator approves. *
 
 ### Revenue Projections
 
-| Year | Scenario | Wrap/Unwrap Fee | Job Escrow (1%) | Enterprise | Total |
-|------|----------|-----------------|-----------------|-----------|-------|
-| **2026** | Conservative | $24K | $3K | $0 | **$27K** |
-| **2026** | Base | $90K | $60K | $50K | **$200K** |
-| **2026** | Optimistic | $240K | $1.2M | $150K | **$1.59M** |
-| **2027** | Multi-Chain | $1M | $3M | $300K | **$4.3M** |
-| **2028+** | Mainstream | $5M | $15M | $1M | **$21M** |
+| Year      | Scenario     | Wrap/Unwrap Fee | Job Escrow (1%) | Enterprise | Total      |
+| --------- | ------------ | --------------- | --------------- | ---------- | ---------- |
+| **2026**  | Conservative | $24K            | $3K             | $0         | **$27K**   |
+| **2026**  | Base         | $90K            | $60K            | $50K       | **$200K**  |
+| **2026**  | Optimistic   | $240K           | $1.2M           | $150K      | **$1.59M** |
+| **2027**  | Multi-Chain  | $1M             | $3M             | $300K      | **$4.3M**  |
+| **2028+** | Mainstream   | $5M             | $15M            | $1M        | **$21M**   |
 
 Key insight: **every new chain and VM that Zama deploys to multiplies MARC's addressable market.** x402 volume alone is $166M+ and growing. Combined with MCP, MPP, A2A, AgentKit, and other emerging protocols, the total agent payment market is much larger. MARC needs just 2-5% adoption for meaningful revenue.
 
@@ -562,26 +565,35 @@ See [docs/SECURITY.md](docs/SECURITY.md) for the full threat model and audit his
 ## Roadmap
 
 ### v1.0.0 (Current)
-- 7 contracts: ConfidentialUSDC, X402PaymentVerifier, AgenticCommerceProtocol, AgentIdentityRegistry, AgentReputationRegistry, MARCTimelock, MockUSDC
-- 10 framework plugins: x402, MCP, MPP, AgentKit, Virtuals GAME, OpenClaw
+
+- 7 contracts deployed on Ethereum Sepolia
+- 10 framework plugins: x402, MCP, MPP, A2A, AgentKit, Virtuals GAME, OpenClaw, ElizaOS, LangChain, CrewAI
+- Single TX default (Zama operator pattern, payAndRecord atomic payments)
 - SDK with fheFetch, fhePaywall, facilitator, ERC-8004/8183 helpers
-- 900+ tests, deployed on Ethereum Sepolia
-- The Graph subgraph, GitHub Actions CI/CD
+- 1100+ tests, GitHub Actions CI/CD, The Graph subgraph
 
 ### v1.1 (Next)
+
 - Ethereum mainnet deployment
-- Professional third-party audit
+- Professional third-party security audit
 - UUPS proxy pattern for contract upgradeability
 - Multisig treasury (Gnosis Safe)
+- Provider budget verification (FHE.allow for job budget transparency between parties)
 - Gas benchmark report
 
 ### v1.2
+
 - Multi-chain deployment: Base (#1 x402 volume), Arbitrum (largest L2 TVL)
 - Multi-token factory (cWETH, cDAI confidential wrappers)
+- Encrypted agent-to-agent messaging via ECDH (private pricing negotiation using ERC-8004 public keys)
+- Configurable fee rates via governance
 - Facilitator network (decentralized verification)
 
 ### v2.0
+
 - Multi-VM expansion: Solana (SVM) via Zama's cross-VM roadmap
+- Cross-VM confidential transfers
+- Encrypted agent messaging across chains
 - Wherever Zama deploys FHE, MARC follows
 
 ## License
