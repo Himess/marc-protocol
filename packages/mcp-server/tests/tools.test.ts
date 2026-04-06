@@ -12,6 +12,9 @@ const mockConfidentialTransfer = vi.fn();
 const mockUnwrap = vi.fn();
 const mockConfidentialBalanceOf = vi.fn();
 const mockRecordPayment = vi.fn();
+const mockPayAndRecord = vi
+  .fn()
+  .mockResolvedValue({ hash: "0xpayandrecord", wait: vi.fn().mockResolvedValue({ status: 1 }) });
 const mockGetAddress = vi.fn().mockResolvedValue("0x1234567890abcdef1234567890abcdef12345678");
 const mockSignMessage = vi.fn().mockResolvedValue("0xmocksignature");
 
@@ -39,6 +42,7 @@ vi.mock("ethers", async () => {
         // Verifier contract
         return {
           recordPayment: mockRecordPayment,
+          payAndRecord: mockPayAndRecord,
         };
       }
       // USDC contract
@@ -340,8 +344,7 @@ describe("pay_x402", () => {
 
       expect(result).toContain("x402 payment completed");
       expect(result).toContain("1.000000 USDC");
-      expect(result).toContain("Transfer TX:");
-      expect(result).toContain("Verifier TX:");
+      expect(result).toContain("Payment TX:");
       expect(result).toContain("premium content");
     } finally {
       globalThis.fetch = originalFetch;
